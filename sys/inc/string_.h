@@ -326,6 +326,10 @@ public:
     {
         check_length(1);
 
+        // MDTODO : This is terrible allocation strategy.
+        //  We should double buffer size here if we need to resize
+        //  Similarly for others like append
+
         ensure_buf(1 + length());
         back() = ch;
     }

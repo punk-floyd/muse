@@ -43,8 +43,6 @@ template <class T>
 [[nodiscard]] constexpr T* launder(T* p) noexcept
     { return __builtin_launder(p); }
 
-// Program is ill-formed if T is a function type or (possibly cv-qualified) void
-
 template <class Ret, class... Args>
 void launder(Ret(*)(Args...)) = delete;
 

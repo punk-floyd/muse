@@ -4,23 +4,7 @@
 #include <format_.h>
 #include <error_.h>
 
-/*
-    Strategy:
-
-    Concrete function:
-        e.g., sys::string format("Hello {}...", s...);
-
-    If we have some template object that takes literal fmt and pack of types
-    then we can check several things at compile time:
-        - number of arguments
-        - that each type is a valid type
-        - that the format string for that type is valid
-    This object should provide an interface for where the data is sent:
-        string, ostream, ???
-*/
-
 #include <initializer_list_.h>
-
 class Foo {
 public:
 
@@ -52,6 +36,8 @@ public:
     }
 };
 
+#include <vector_.h>
+
 class True : public sys::app
 {
 public:
@@ -62,8 +48,12 @@ public:
         int a{0x12345678};
         double d{};
         sys::string s{};
-        //Foo foo{};
+        Foo foo{};
 
+        sys::vector<Foo> v;
+        v.push_back(foo);
+
+#if 0
         try {
             auto fs = sys::format("What say you? {}\n", 100);
             stout()->out(fs);
@@ -73,6 +63,7 @@ public:
             stout()->out(e.get_msg());
             stout()->out("\n");
         }
+#endif
 #endif
         return 0;
     }
