@@ -10,13 +10,10 @@
 #define sys_vector__included
 
 #include <_core_.h>
-#if 0
 #include "imp/vector_buf.h"
-#endif
 #include <type_traits_.h>
 #include <iterator_.h>
 #include <limits_.h>
-#include <bit_.h>
 
 _SYS_BEGIN_NS
 
@@ -36,6 +33,7 @@ public:
 
     using iterator        = it_contig<T>;
     using const_iterator  = it_contig<const T>;
+    using buffer_type     = imp::vector_buf<value_type>;
 
     // -- Construction
 
@@ -44,23 +42,23 @@ public:
 
     /// Returns true if container is empty
     [[nodiscard]] constexpr bool is_empty() const noexcept
-        { return 0 == length(); }
+        { return 0 == _buf.length(); }
     /// Returns the current length of the buffer
     [[nodiscard]] constexpr size_type length() const noexcept
-        { return _len; }
+        { return _buf.length(); }
     /// Returns the current capacity of the buffer
     [[nodiscard]] constexpr size_type capacity() const noexcept
-        { return _cap; }
+        { return _buf.capacity(); }
     // Returns maximum buffer length
     [[nodiscard]] constexpr size_type max_size() const noexcept
         { return numeric_limits<size_type>::max; }
 
     /// Direct access to the underlying data
     [[nodiscard]] constexpr pointer data() noexcept
-        { return _buf; }
+        { return _buf.data(); }
     /// Direct access to the underlying data
     [[nodiscard]] constexpr const_pointer data() const noexcept
-        { return _buf; }
+        { return _buf.data(); }
 
     // -- Element access
 
@@ -93,12 +91,17 @@ public:
     /// Adds an element to the end
     template <class Ty>
         requires same_as<remove_cvref_t<Ty>, value_type>
-    constexpr void push_back (Ty&& t)
+    constexpr iterator push_back (Ty&& t)
     {
-        if (1 + length() > capacity())
-            grow(1);
-        construct_at(data() + _len, sys::forward<Ty>(t));
-        _len += 1;
+        return append_work(sys::forward<Ty>(t));
+    }
+
+    /// Emplace an element at the end
+    template <class... Args>
+        requires is_constructible_v<T, Args...>
+    constexpr iterator emplace(Args... args)
+    {
+        return append_work(sys::forward<Args>(args)...);
     }
 
     // -- Iterators
@@ -115,15 +118,15 @@ public:
 
 protected:
 
-    /// Allocate N items *without* initialization
-    [[nodiscard]] static constexpr value_type* allocate(sys::size_t n)
+    template <class... Args>
+        requires is_constructible_v<T, Args...>
+    constexpr iterator append_work(Args... args)
     {
-        auto p = ::operator new(n * sizeof(value_type));
-        return sys::bit_cast<value_type*>(p);
-    }
-    static constexpr void deallocate(value_type* p)
-    {
-        ::operator delete(p);
+        if (1 + length() > capacity())
+            grow(1);
+        auto ret = construct_at(data() + length(), sys::forward<Args>(args)...);
+        _buf.set_length(length() + 1);
+        return iterator(ret);
     }
 
     /// Adjust capacity by at least n items
@@ -144,36 +147,25 @@ protected:
                 cap_try = cap_need;
         }
 
-        ensure_buf(cap_try, false);
+        ensure_buf(cap_try);
     }
 
     /// Ensure that our capacity is at least count items
-    constexpr pointer ensure_buf(size_type count, bool set_length = true)
+    constexpr pointer ensure_buf(size_type count)
     {
         if (count > capacity()) {
-
-            auto new_data = allocate(count);
-            // MOOMOO : FIXME. If we throw, that's going to leak
-
-            auto src = cbegin();
-            auto dst = new_data;
-
             if constexpr (sys::is_nothrow_move_constructible_v<value_type>) {
-                for (size_t i = 0; i<length(); ++i)
-                    construct_at(dst++, sys::move(*src++));     // Move data over
+                // Create a bigger buffer and move our content in.
+                auto new_data = buffer_type{count, sys::move(_buf)};
+                _buf.swap(new_data);
             }
             else {
-                for (size_t i = 0; i<length(); ++i)
-                    construct_at(dst++, *src++);                // Copy data over
+                // Create a bigger buffer and copy our content in. Need to
+                // copy because moving might throw.
+                auto new_data = buffer_type{count, _buf};
+                _buf.swap(new_data);
             }
-
-            // Do the old switcheroo
-            deallocate(_buf);       // MOOMOO: Fixme: No one destructing yet
-            _buf = new_data;
         }
-
-        if (set_length)
-            _len = count;
 
         return data();
     }
@@ -187,9 +179,7 @@ protected:
 
 private:
 
-    pointer     _buf{nullptr};
-    size_type   _cap{0};
-    size_type   _len{0};
+    buffer_type _buf;
 };
 
 _SYS_END_NS

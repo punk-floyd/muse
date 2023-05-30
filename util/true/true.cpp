@@ -9,7 +9,7 @@ class Foo {
 public:
 
     Foo() { sys::io::stout->out("Foo\n"); }
-    Foo(int a, char c, double d) {sys::io::stout->out("Foo(...)\n");}
+    Foo(int a, char c, double d) {sys::io::stout->out("Foo(int,char,double)\n");}
 
     Foo(sys::initializer_list<int> il)
         {sys::io::stout->out("Foo({...})\n");}
@@ -48,10 +48,22 @@ public:
         int a{0x12345678};
         double d{};
         sys::string s{};
-        Foo foo{};
 
-        sys::vector<Foo> v;
-        v.push_back(foo);
+        //Foo foo{};
+        //sys::vector<Foo> v;
+        //v.push_back(Foo{});
+        //v.push_back(Foo{});
+        //v.emplace(100, 'C', 123.456);
+
+        sys::vector<int> vi;
+        vi.push_back(1);
+        vi.push_back(2);
+        stout()->out("Moop\n");
+
+        for (const auto& it : vi)
+            stout()->out(sys::format("{} ", it));
+        stout()->out("\n");
+
 
 #if 0
         try {
