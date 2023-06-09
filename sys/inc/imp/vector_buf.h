@@ -40,14 +40,10 @@ public:
         requires is_same_v<remove_cvref_t<V>, vector_buf<T>>
     constexpr vector_buf(size_type cap, V&& other)
         : _buf(allocator().allocate(cap)), _cap(cap)
-        , _len(sys::min(cap, other.size()))
     {
+        // assert(cap >= other.size())
         forward_elements(sys::forward<V>(other));
     }
-
-    /// Construct with a given capacity, forwarding items from other, but
-    /// leaving a "hole" for to-be-inserted items. It is assumed that the
-    /// new
 
     /** @brief Construct with \p cap capacity, forwarding items from other
      *   with "hole"
@@ -60,7 +56,8 @@ public:
      * default initialized state so the new item(s) can be constructed in
      * place directly.
      *
-     * @param cap           The capacity to use for this buffer
+     * @param cap           The capacity to use for this buffer. This value
+     *  must not be less than other.size() + ins_count.
      * @param other         The source buffer from which to copy/move items
      * @param ins_offset    The offset at which to leave the hole
      * @param ins_count     The size of the hole in elements
@@ -69,8 +66,8 @@ public:
         requires is_same_v<remove_cvref_t<V>, vector_buf<T>>
     constexpr vector_buf(size_type cap, V&& other, size_type ins_offset, size_type ins_count)
         : _buf(allocator().allocate(cap)), _cap(cap)
-        , _len(sys::min(cap, other.size()))
     {
+        // assert (cap >= other.size() + ins_count)
         forward_elements_with_hole(sys::forward<V>(other),
             ins_offset, ins_count);
     }
@@ -97,9 +94,8 @@ public:
 
         _buf = allocator().allocate(cpy.capacity());
         _cap = cpy.capacity();
-        _len = cpy.size();
 
-        forward_elements(cpy);
+        forward_elements(cpy);      // Will set _len
 
         return *this;
     }
@@ -157,10 +153,17 @@ protected:
         requires is_same_v<remove_cvref_t<V>, vector_buf<T>>
     constexpr void forward_elements(V&& other)
     {
+        // Update _len as we successfully construct items. This will ensure
+        // that we destruct the appropriate number of items in our cleanup
+        // if something goes wrong.
+        _len = 0;
+
         auto dst = data();
         auto src = other.data();
-        for (size_type i=0; i<size(); ++i)
+        for (size_type i=0; i<size(); ++i) {
             construct_at(dst++, sys::forward<T>(*src++));
+            ++_len;
+        }
     }
 
     template <class V>
@@ -168,14 +171,33 @@ protected:
     constexpr void forward_elements_with_hole(V&& other,
         size_type ins_offset, size_type ins_count)
     {
+        // Update _len as we successfully construct items. This will ensure
+        // that we destruct the appropriate number of items in our cleanup
+        // if something goes wrong.
+        _len = 0;
+
         auto dst = data();
         auto src = other.data();
         size_type i = 0;
 
-        for (i=0; (i < size()) && (i != ins_offset); ++i)
+        // Forward items from source up to the new hole
+        for (i=0; (i < other.size()) && (i != ins_offset); ++i) {
             construct_at(dst++, sys::forward<T>(*src++));
-        // I_AM_HERE
+            ++_len;
+        }
 
+        // Jump over the memory where the caller will be constructing the
+        // to-be-inserted items.
+        if (i == ins_offset) {
+            dst  += ins_count;
+            _len += ins_count;
+        }
+
+        // Forward the remaining items after the hole
+        for (; i < other.size(); ++i) {
+            construct_at(dst++, sys::forward<T>(*src++));
+            _len++;
+        }
     }
 
     constexpr void release() noexcept(is_nothrow_destructible_v<value_type>)

@@ -169,7 +169,7 @@ protected:
             // buffer with a "hole" where the inserted items will be. That
             // allows us to just construct the new items in place and not
             // have to move existing items to make room like we do in the
-            // next case.
+            // next case. This will set length to size() + count.
             grow_capacity_for_insert(calc_new_capacity(count), offset, count);
         }
         else {
@@ -184,15 +184,53 @@ protected:
                 construct_at(dst--, sys::forward<T>(*src));     // Copy or move constructor
                 destruct_at (src--);
             }
+
+            // Adjust length
+            _buf.inc_size(count);
         }
 
-        // Insert the new items
-        auto dst = &data()[offset];
-        for (size_type i = 0; i<count; ++i,++dst)
-            construct_at(dst, sys::forward<Args>(args)...);
+        constexpr bool no_try_block =
+            is_trivially_destructible_v<value_type> ||
+            is_nothrow_constructible_v <value_type, Args...>;
 
-        // Adjust length
-        _buf.inc_size(count);
+        // Insert the new items
+        if constexpr (no_try_block) {
+            auto dst = &data()[offset];
+            for (size_type i = 0; i<count; ++i,++dst)
+                construct_at(dst, sys::forward<Args>(args)...);
+        }
+        else {
+            // In this case, the constructor could throw and we have a non
+            // trivial destructor. If any constructor throws then we are
+            // guaranteed to have at least one "hole" where no item has been
+            // constructed. This can cause Bad Things™ when vector_buf tries
+            // to destruct the object that doesn't exist in said hole.
+            size_type i = 0;
+            try {
+                auto dst = &data()[offset];
+                for (; i<count; ++i,++dst)
+                    construct_at(dst, sys::forward<Args>(args)...);
+            }
+            catch(...) {
+
+                //idx:0,...     w,...      x,...         y,...       z
+                // { [pre-hole] [hole-obj] [hole-noinit] [post-hole] [excess-capacity] }
+                //       ^           ^          ^             ^
+                //       |           |          |             \-- Elements post hole
+                //       |           |          \-- Uninitialized memory
+                //       |           \-- Elements construced in try block above
+                //       \-- Elements prior to hole
+                //
+                // w == offset, x == offset + i, y == offset + count, z == size()
+                //
+                // Clean up:
+                //  a) Destruct the hole objects we just constructed above [hole-obj]
+                //  b) Destruct already constructed objects after the hole [post-hole]
+                //  c) Truncate length to insertion point and re-throw.
+                //  d) Normal destruction will handle the rest
+                // I_AM_HERE
+            }
+        }
 
         return iterator(data() + offset);
     }

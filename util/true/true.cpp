@@ -57,7 +57,7 @@ public:
         // auto it = v.cbegin(); it += 2;
         // v.insert(it, Foo{});
 
-        sys::vector<int> vi(10);
+        sys::vector<int> vi(5);
         vi.push_back(1);
         vi.push_back(2);
         vi.push_back(3);
