@@ -223,12 +223,22 @@ protected:
                 //
                 // w == offset, x == offset + i, y == offset + count, z == size()
                 //
-                // Clean up:
-                //  a) Destruct the hole objects we just constructed above [hole-obj]
-                //  b) Destruct already constructed objects after the hole [post-hole]
-                //  c) Truncate length to insertion point and re-throw.
-                //  d) Normal destruction will handle the rest
-                // I_AM_HERE
+
+                // Destruct the hole objects we just constructed above [hole-obj]
+                auto doomed = &data()[offset];
+                for (size_type j=0; j<i; ++j,++doomed)
+                    destruct_at(doomed);
+
+                // Destruct previously constructed objects after the hole [post-hole]
+                doomed = &data()[offset + count];
+                auto post_hole_count = size() - (offset + count);
+                for (size_type j=0; j<post_hole_count; ++j,++doomed)
+                    destruct_at(doomed);
+
+                // Truncate length to insertion point and re-throw. Normal
+                // destruction will handle the rest.
+                _buf.set_size(offset);
+                throw;
             }
         }
 
