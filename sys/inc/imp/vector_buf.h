@@ -35,14 +35,30 @@ public:
         : _buf(allocator().allocate(cap)), _cap(cap)
     { }
 
-    /// Construct with a given capacity, copying/moving items from other
-    template <class V>
-        requires is_same_v<remove_cvref_t<V>, vector_buf<T>>
-    constexpr vector_buf(size_type cap, V&& other)
+    /** @brief Construct with a given capacity, moving items from other
+     *
+     * @param cap   The capacity that we should allocate for
+     * @param other Another vector_buf from which we will move its elements
+     *  into our own buffer. We're taking this parameter as an r-value
+     *  reference mainly as a 'tag' to indicate we want to move its items.
+     *  If we take it as a non-const l-value reference then it would be
+     *  messy trying to disambiguate between this and the next contstructor,
+     *  which does the same thing as this, but copies elements instead of
+     *  moving them.
+    */
+    constexpr vector_buf(size_type cap, vector_buf&& other)
         : _buf(allocator().allocate(cap)), _cap(cap)
     {
         // assert(cap >= other.size())
-        forward_elements(sys::forward<V>(other));
+        move_elements(other);
+    }
+
+    /// Construct with a given capacity, copying items from other
+    constexpr vector_buf(size_type cap, const vector_buf& other)
+        : _buf(allocator().allocate(cap)), _cap(cap)
+    {
+        // assert(cap >= other.size())
+        copy_elements(other);
     }
 
     /** @brief Construct with \p cap capacity, forwarding items from other
@@ -78,9 +94,13 @@ public:
     { }
 
     /// Move constructor
-    constexpr vector_buf(vector_buf&& other) noexcept(is_nothrow_move_constructible_v<T>)
-        : vector_buf(other.capacity(), sys::move(other))
-    { }
+    constexpr vector_buf(vector_buf&& other) noexcept
+        : _buf(other._buf), _cap(other._cap), _len(other._len)
+    {
+        other._buf = nullptr;
+        other._cap = 0;
+        other._len = 0;
+    }
 
     constexpr ~vector_buf() noexcept(is_nothrow_destructible_v<value_type>)
     {
@@ -95,7 +115,7 @@ public:
         _buf = allocator().allocate(cpy.capacity());
         _cap = cpy.capacity();
 
-        forward_elements(cpy);      // Will set _len
+        copy_elements(cpy);      // Will set _len
 
         return *this;
     }
@@ -143,25 +163,44 @@ public:
         sys::swap(_len, other._len);
     }
 
+    // - Buffer length adjustment - assumes caller constructs/destructs items
+
     constexpr void set_size(size_type n)     noexcept { _len  = n; }
     constexpr void inc_size(size_type n = 1) noexcept { _len += n; }
     constexpr void dec_size(size_type n = 1) noexcept { _len -= n; }
 
 protected:
 
-    template <class V>
-        requires is_same_v<remove_cvref_t<V>, vector_buf<T>>
-    constexpr void forward_elements(V&& other)
+    constexpr void copy_elements(const vector_buf& other)
     {
+        // assert(capacity() >= other.size());
+
         // Update _len as we successfully construct items. This will ensure
         // that we destruct the appropriate number of items in our cleanup
-        // if something goes wrong.
+        // if something throws.
         _len = 0;
 
         auto dst = data();
         auto src = other.data();
-        for (size_type i=0; i<size(); ++i) {
-            construct_at(dst++, sys::forward<T>(*src++));
+        for (size_type i=0; i<other.size(); ++i) {
+            construct_at(dst++, *src++);
+            ++_len;
+        }
+    }
+
+    constexpr void move_elements(vector_buf& other)
+    {
+        // assert(capacity() >= other.size());
+
+        // Update _len as we successfully construct items. This will ensure
+        // that we destruct the appropriate number of items in our cleanup
+        // if something throws.
+        _len = 0;
+
+        auto dst = data();
+        auto src = other.data();
+        for (size_type i=0; i<other.size(); ++i) {
+            construct_at(dst++, sys::move(*src++));
             ++_len;
         }
     }
@@ -223,9 +262,9 @@ protected:
 
 private:
 
-    pointer     _buf{nullptr};
-    size_type   _cap{0};
-    size_type   _len{0};
+    pointer     _buf{nullptr};      ///< Buffer address
+    size_type   _cap{0};            ///< Buffer capacity in elements
+    size_type   _len{0};            ///< Number of elements in buffer
 };
 
 }

@@ -85,15 +85,15 @@ public:
 
     // -- Iterators
 
-    constexpr iterator begin() noexcept
-        { return iterator(data()); }
-    constexpr iterator end() noexcept
-        { return iterator(data() + size()); }
+    [[nodiscard]] constexpr iterator begin() noexcept
+        { return iterator{data()}; }
+    [[nodiscard]] constexpr iterator end() noexcept
+        { return iterator{data() + size()}; }
 
-    constexpr const_iterator cbegin() const noexcept
-        { return const_iterator(data()); }
-    constexpr const_iterator cend() const noexcept
-        { return const_iterator(data() + size()); }
+    [[nodiscard]] constexpr const_iterator cbegin() const noexcept
+        { return const_iterator{data()}; }
+    [[nodiscard]] constexpr const_iterator cend() const noexcept
+        { return const_iterator{data() + size()}; }
 
     // -- Capacity
 
@@ -109,6 +109,24 @@ public:
     /// Returns the current capacity of the buffer
     [[nodiscard]] constexpr size_type capacity() const noexcept
         { return _buf.capacity(); }
+
+    constexpr void reserve(size_type new_cap)
+    {
+        if (new_cap > capacity()) {
+            if constexpr (is_nothrow_move_constructible_v<value_type>) {
+                // Create a bigger buffer and move our content in
+                auto new_data = buffer_type{new_cap, sys::move(_buf)};
+                _buf.swap(new_data);
+            }
+            else {
+                // Create a bigger buffer and copy our content in. Need to
+                // copy because moving might throw. If this throws, our
+                // original vector is still intact and unaffected.
+                auto new_data = buffer_type{new_cap, _buf};
+                _buf.swap(new_data);
+            }
+        }
+    }
 
     // -- Modifiers
 
@@ -134,6 +152,30 @@ public:
         return insert_work(pos - cbegin(), count, sys::forward<E>(value));
     }
 
+    /// Constructs element in-place
+    template <class... Args>
+        requires is_constructible_v<value_type, Args...>
+    constexpr iterator emplace(const_iterator pos, Args&&... args)
+    {
+        return insert_work(pos - cbegin(), 1, sys::forward<Args>(args)...);
+    }
+
+    /// Remove the element at \p pos
+    constexpr void erase(const_iterator pos)
+        noexcept(is_nothrow_move_assignable_v<value_type>)
+    {
+        erase_work(pos, 1);
+    }
+
+    /// Remove elements in the range [ \p first, \p last )
+    constexpr void erase(const_iterator first, const_iterator last)
+        noexcept(is_nothrow_move_assignable_v<value_type>)
+    {
+        auto d = sys::distance(first, last);
+        if (d > 0)
+            erase_work(first, static_cast<size_type>(d));
+    }
+
     /// Adds an element to the end
     template <class Ty>
         requires same_as<remove_cvref_t<Ty>, value_type>
@@ -157,14 +199,92 @@ public:
         _buf.dec_size();
     }
 
+    /// Changes the number of elements stored
+    constexpr void resize(size_type count)
+    {
+        if (count < size())
+            erase(cbegin() + (size() - count), cend());
+        else if (count > size())
+            insert(cend(), count - size(), value_type{});
+    }
+
+    /// Changes the number of elements stored
+    constexpr void resize(size_type count, const value_type& value)
+    {
+        if (count < size())
+            erase(cbegin() + (size() - count), cend());
+        else if (count > size())
+            insert(cend(), count - size(), value);
+    }
+
+    /// Swaps the contents of two vectors
+    constexpr void swap(vector<value_type>& other) noexcept
+    {
+        _buf.swap(other._buf);
+    }
+
+    // -- Comparison
+
+    constexpr bool operator==(const vector<T>& rhs) const
+    {
+        if (size() != rhs.size())
+            return false;
+
+        auto il = cbegin();
+        for (auto ir = rhs.cbegin(); il!=cend() && (*il == *ir); ++il,++ir);
+        return il == cend();
+    }
+
+    constexpr compare_three_way_result_t<T> operator<=>(const vector<T>& rhs) const
+        requires three_way_comparable<T>
+    {
+        // First check size
+        auto sc = size() <=> rhs.size();
+        if (is_neq(sc))
+            return sc;
+
+        // Next check the elements
+        auto il = cbegin();
+        for (auto ir = rhs.cbegin(); il!=cend(); ++il,++ir) {
+            auto ic = *il <=> *ir;
+            if (is_neq(ic))
+                return ic;
+        }
+
+        return strong_ordering::equal;
+    }
+
 protected:
+
+    constexpr void erase_work(const_iterator pos, size_type count)
+        noexcept(is_nothrow_move_assignable_v<value_type>)
+    {
+        size_type offset = static_cast<size_type>(sys::distance(cbegin(), pos));
+
+        // Move the remaining elements down
+        if (size_type to_move = size() - (offset + count)) {
+            auto dst = &data()[offset];
+            auto src = dst + count;
+
+            for (size_type i = 0; i<to_move; ++i)
+                *dst++ = sys::move(*src++);
+        }
+
+        // Destroy the elements
+        auto doomed = &data()[size() - count];
+        for (size_type i = 0; i<count; ++i)
+            destruct_at(doomed++);
+
+        // Finally update size
+        _buf.dec_size(count);
+    }
 
     template <class... Args>
         requires is_constructible_v<T, Args...>
     constexpr iterator insert_work(size_type offset, size_type count, Args&&... args)
     {
         if (count + size() > capacity()) {
-            // ensure_capacity_for_insert is optimized such that if we need
+            // grow_capacity_for_insert is optimized such that if we need
             // to grow, the underlying buffer object will construct the new
             // buffer with a "hole" where the inserted items will be. That
             // allows us to just construct the new items in place and not
@@ -333,7 +453,7 @@ protected:
             _buf.swap(new_data);
         }
         else {
-            // Create a biffer buffer and copy out content in, but leave a
+            // Create a bigger buffer and copy our content in, but leave a
             // hole for the items we'll be inserting. Need to copy because
             // moving might throw. If this throws, our original vector is
             // still intact and unaffected.

@@ -34,12 +34,6 @@ struct it_contig
 
     constexpr explicit it_contig(pointer ptr) noexcept : _cur(ptr) {}
 
-    it_contig(const it_contig&) = default;
-    it_contig& operator= (const it_contig&) = default;
-    it_contig(it_contig&&) noexcept = default;
-    it_contig& operator= (it_contig&&) noexcept = default;
-    ~it_contig() = default;
-
     constexpr reference operator*() noexcept                // *it
         { return *_cur; }
     constexpr const reference operator*() const noexcept    // *it
@@ -97,6 +91,11 @@ struct it_contig
     friend constexpr difference_type operator- (it_contig a, it_contig b)   // it - it2
         { return a._cur - b._cur; }
 
+    /// Conversion to a const iterator
+    constexpr operator it_contig<const T>() const noexcept
+        requires (!is_const_v<T>)
+    { return it_contig<const T>{_cur}; }
+
 private:
 
     pointer         _cur;
@@ -131,7 +130,7 @@ struct back_insert_iterator
 
 protected:
 
-    container_type* _cont;
+    container_type* _cont;      // MDTODO : reference wrapper here
 };
 
 /// Output iterator that does nothing with elements
@@ -148,10 +147,10 @@ struct null_insert_iterator
     constexpr explicit null_insert_iterator() noexcept = default;
 
     constexpr null_insert_iterator& operator=(const T&) noexcept { return *this; }
-    constexpr null_insert_iterator& operator=(T&&) noexcept      { return *this; }
-    constexpr null_insert_iterator& operator*() noexcept         { return *this; }
-    constexpr null_insert_iterator& operator++() noexcept        { return *this; }
-    constexpr null_insert_iterator  operator++(int) noexcept     { return *this; }
+    constexpr null_insert_iterator& operator=(T&&)      noexcept { return *this; }
+    constexpr null_insert_iterator& operator*()         noexcept { return *this; }
+    constexpr null_insert_iterator& operator++()        noexcept { return *this; }
+    constexpr null_insert_iterator  operator++(int)     noexcept { return *this; }
 };
 
 /// Output iterator that only counts elements
@@ -168,10 +167,10 @@ struct count_insert_iterator
     constexpr explicit count_insert_iterator() noexcept = default;
 
     constexpr count_insert_iterator& operator=(const T&) noexcept { _count++; return *this; }
-    constexpr count_insert_iterator& operator=(T&&) noexcept      { _count++; return *this; }
-    constexpr count_insert_iterator& operator*() noexcept         { return *this; }
-    constexpr count_insert_iterator& operator++() noexcept        { return *this; }
-    constexpr count_insert_iterator  operator++(int) noexcept     { return *this; }
+    constexpr count_insert_iterator& operator=(T&&)      noexcept { _count++; return *this; }
+    constexpr count_insert_iterator& operator*()         noexcept { return *this; }
+    constexpr count_insert_iterator& operator++()        noexcept { return *this; }
+    constexpr count_insert_iterator  operator++(int)     noexcept { return *this; }
 
     constexpr size_t get_count() const noexcept { return _count; }
 
@@ -179,6 +178,21 @@ private:
 
     size_t  _count{0};
 };
+
+template <class It>
+auto distance(It first, It last) -> It::difference_type
+{
+    if constexpr (sys::is_same_v<typename It::iterator_category, tag_iterator_contig>)
+        return last - first;
+    else {
+        typename It::difference_type d{0};
+        while (first != last) {
+            first++;
+            d++;
+        }
+        return d;
+    }
+}
 
 _SYS_END_NS
 

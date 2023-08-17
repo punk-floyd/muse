@@ -38,7 +38,7 @@ constexpr bool is_error(error_code ec) noexcept
     return ec != error_code::no_error;
 }
 
-class string; // MOOMOO?
+class string;
 
 // -- System exceptions
 

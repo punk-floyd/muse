@@ -393,7 +393,7 @@ _SYS_BEGIN_NS
 using std::construct_at;
 
 template <class T>
-constexpr void destruct_at(T* doomed)
+constexpr void destruct_at(T* doomed) noexcept(is_nothrow_destructible_v<T>)
 {
     if constexpr (is_array_v<T>) {
         for (auto& e : *doomed)
