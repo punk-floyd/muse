@@ -37,7 +37,7 @@ My assumptions:
  - I'm building on a GCC that supports C++20 (presently gcc-12)
  - I'm running on a UNIX like OS (presently Debian flavored Linux)
 
-# The state of things (May 2023)
+# The state of things (August 2023)
 
 ## C++ Runtime (sys)
 
@@ -106,3 +106,7 @@ Headers:
  - [variant_.h](sys/inc/variant_.h) (sys::variant) - A mostly complete
    implementation of a constexpr friendly variant class. Not yet supported:
    converting constructors.
+ - [vector_.h](sys/inc/vector_.h) (sys::vector) - Generic dynamic contiguous
+   array. Roughly equivalent to std::vector but does not support custom
+   allocators. Offers strong exception guarantee for all operations that can
+   grow the buffer.
