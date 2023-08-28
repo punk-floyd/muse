@@ -550,6 +550,18 @@ namespace imp {
 /// Utility class for using static_assert to flag errors in constexpr code
 template <class T> inline constexpr bool dependent_false_v = imp::dependent_false<T>::value;
 
+/// Checks if a type is a specialization of a given template
+/// Eequires template type; cannot be a template value
+template <class T, template <class...> class Template>
+struct is_specialization : false_type {};
+template <template <class...> class Template, class... Args>
+struct is_specialization<Template<Args...>, Template> : true_type {};
+
+template <class T, template <size_t> class Template>
+struct is_specialization_size_t : false_type {};
+template <template <size_t> class Template, size_t Arg>
+struct is_specialization_size_t<Template<Arg>, Template> : true_type {};
+
 template <sys::size_t N>
 struct string_literal
 {

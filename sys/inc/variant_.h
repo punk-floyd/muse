@@ -119,6 +119,24 @@ namespace imp {
             static_assert(sys::dependent_false_v<Alt>, "Bad index");
     }
 
+    template <class T_i, class T>
+    concept is_var_convertible = is_constructible_v<T_i, T>
+        && requires (T&& t)
+    {
+        {new T_i[1] { sys::forward<T>(t) }};
+    };
+
+    template <class T, size_t Idx, class T_i, class... Types>
+    constexpr size_t var_convertible_idx()
+    {
+        if constexpr (is_var_convertible<T_i, T>)
+            return Idx;
+        else if constexpr (sizeof...(Types))
+            return var_convertible_idx<T, Idx+1, Types...>();
+        else
+            static_assert(dependent_false_v<T>);
+    }
+
 } // End namespace imp
 
 template <class... Types>
@@ -189,10 +207,19 @@ public:
         construct_idx<Idx>(il, forward<Args>(args)...);
     }
 
-    // /// Converting constructor : TODO
-    // template <class T>
-    // variant(T&& t) //noexcept(is_nothrow_constructible_v<TheMatchedType, T>)
-    // { }
+    /// Converting constructor
+    template <class T>
+        requires (!is_same_v<remove_cvref_t<T>, variant<Types...>>
+            && !is_specialization_size_t<remove_cvref_t<T>, in_place_index_t>::value
+            && !is_specialization       <remove_cvref_t<T>, in_place_type_t>::value
+            && (1 == (0 + ... + (imp::is_var_convertible<Types, T> ? 1 : 0)))
+        )
+    variant(T&& t)
+        noexcept(is_nothrow_constructible_v<tl::type_at<my_types, imp::var_convertible_idx<T, 0, Types...>()>, T>)
+    {
+        constexpr auto type_idx = imp::var_convertible_idx<T, 0, Types...>();
+        construct_idx<type_idx>(sys::forward<T>(t));
+    }
 
     constexpr ~variant()
     {
