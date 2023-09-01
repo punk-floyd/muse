@@ -24,32 +24,75 @@ public:
         // Invalid type for an argument
         monostate,
         // Integral types
-        signed char,    unsigned char,
-        int,            unsigned int,
-        short,          unsigned short,
-        long,           unsigned long,
-        long long,      unsigned long long,
-        uint128_t,      sint128_t,
+        uint8_t, sint8_t, uint16_t, sint16_t, uint32_t, sint32_t,
+        uint64_t, sint64_t, uint128_t, sint128_t,
         // The bool type
         bool,
         // Pointer types
-        const void*, void*, nullptr_t,
+        const void*, nullptr_t,
         // String types
-        string_view
+        const char*, string_view
     >;
 
     constexpr format_arg() = default;
 
     template <class T>
-    constexpr format_arg(T&& val)
-        : _value(in_place_type<remove_cvref_t<T>>, forward<T>(val))
-    {}
+    constexpr explicit format_arg(T&& val)
+    {
+        init_arg(val);
+    }
+
+    template <class T>
+    constexpr format_arg& operator=(T&& val)
+    {
+        init_arg(val);
+        return *this;
+    }
 
     constexpr arg_type get_variant() const noexcept { return _value; }
 
 private:
 
-    template <class... FmtArgs> friend class format_arg_store;
+    // Workhorse for  format argument value initialization
+    template <class T>
+    constexpr void init_arg(T&& val)
+    {
+        using Ts = remove_cvref_t<T>;
+        using Td = remove_cvref_t<decay_t<T>>;
+
+        // A little hack to handle pointers. [const] char* is tracked as
+        // const char* and is handled by the string code. Any other pointer
+        // is tracked as const void* and is handled by the pointer code.
+        if constexpr (is_pointer_v<Td>) {
+            if constexpr (is_same_v<Td, const char*> || is_same_v<Td, char*>)
+                _value = static_cast<const char*>(val);
+            else
+                _value = static_cast<const void*>(val);
+        }
+        // Pull any (non-bool) integral value into its explicitly sized equivalent.
+        else if constexpr (is_integral_v<Ts> && !is_same_v<Ts, bool>) {
+            if constexpr (is_unsigned_v<Ts>) {
+                if      constexpr (sizeof(Ts) ==  1) _value = static_cast<uint8_t>(val);
+                else if constexpr (sizeof(Ts) ==  2) _value = static_cast<uint16_t>(val);
+                else if constexpr (sizeof(Ts) ==  4) _value = static_cast<uint32_t>(val);
+                else if constexpr (sizeof(Ts) ==  8) _value = static_cast<uint64_t>(val);
+                else if constexpr (sizeof(Ts) == 16) _value = static_cast<uint128_t>(val);
+                else static_assert(dependent_false_v<T>, "Unsigned integral type is too large");
+            }
+            else if constexpr (is_signed_v<Ts>) {
+                if      constexpr (sizeof(Ts) ==  1) _value = static_cast<sint8_t>(val);
+                else if constexpr (sizeof(Ts) ==  2) _value = static_cast<sint16_t>(val);
+                else if constexpr (sizeof(Ts) ==  4) _value = static_cast<sint32_t>(val);
+                else if constexpr (sizeof(Ts) ==  8) _value = static_cast<sint64_t>(val);
+                else if constexpr (sizeof(Ts) == 16) _value = static_cast<sint128_t>(val);
+                else static_assert(dependent_false_v<T>, "Signed integral type is too large");
+            }
+            else
+                static_assert(dependent_false_v<T>, "Integral type is neither signed nor unsigned");
+        }
+        else
+            _value = forward<T>(val);
+    }
 
     arg_type        _value{};
 };
@@ -101,21 +144,17 @@ private:
     using fmt_store = formatter_store<remove_cvref_t<FmtArgs>...>;
     /// Type that holds formatting arguments
     using arg_store = array<format_arg, sizeof...(FmtArgs)>;
-    /// The type of a single formatting argument
-    using arg_type  = format_arg::arg_type;
 
     template <size_t Idx, class Arg>
     constexpr void init_store(Arg&& arg)
     {
-        _args[Idx]._value =
-            arg_type {in_place_type<remove_cvref_t<Arg>>, forward<Arg>(arg)};
+        _args[Idx] = forward<Arg>(arg);
     }
 
     template <size_t Idx, class Arg, class... Args>
     constexpr void init_store(Arg&& arg, Args&&... args)
     {
-        _args[Idx]._value =
-            arg_type {in_place_type<remove_cvref_t<Arg>>, forward<Arg>(arg)};
+        _args[Idx] = forward<Arg>(arg);
 
         if constexpr (sizeof...(Args) > 0)
             init_store<Idx + 1, Args...>(forward<Args>(args)...);

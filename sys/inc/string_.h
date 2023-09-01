@@ -43,7 +43,8 @@ private:
     /// Construct with default initialized data
     constexpr explicit string(size_type count)
     {
-        ensure_buf(count);
+        ensure_buf(_sbuf.calc_new_capacity(count), false);
+        _sbuf.internal_set_length(count);
     }
 
 public:
@@ -325,10 +326,6 @@ public:
     constexpr void push_back(char_t ch)
     {
         check_length(1);
-
-        // MDTODO : This is terrible allocation strategy.
-        //  We should double buffer size here if we need to resize
-        //  Similarly for others like append
 
         ensure_buf(1 + length());
         back() = ch;

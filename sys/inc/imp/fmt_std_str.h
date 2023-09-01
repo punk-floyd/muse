@@ -15,8 +15,8 @@
 
 _SYS_BEGIN_NS
 
-template<>
-struct formatter<string_view> : formatter_std
+template<string_view_convertible T>
+struct formatter<T> : formatter_std
 {
     using my_base = formatter_std;
 
@@ -68,7 +68,13 @@ struct formatter<string_view> : formatter_std
     void format(const format_arg& fmt_arg, format_context& fmt_ctx) override
     {
         // The format argument value
-        auto val = fmt_arg.get_variant().get<string_view>();
+        sys::string_view val;
+        // TODO : Clean this up. We know that T is convertible to string_view.
+        if constexpr (is_same_v<remove_cvref_t<T>, sys::string_view> ||
+                      is_same_v<remove_cvref_t<T>, string>)
+            val = fmt_arg.get_variant().get<sys::string_view>();
+        else
+            val = fmt_arg.get_variant().get<const char*>();
 
         // Resolve output type
         const auto& fs = get_format_spec();

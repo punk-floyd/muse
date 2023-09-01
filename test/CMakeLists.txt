@@ -18,3 +18,8 @@ add_executable         (test-charconv test-charconv.cpp)
 target_compile_features(test-charconv PUBLIC cxx_std_20)
 target_link_libraries  (test-charconv PRIVATE sysrt)
 target_link_libraries  (test-charconv PRIVATE _startup)
+
+add_executable         (test-format test-format.cpp)
+target_compile_features(test-format PUBLIC cxx_std_20)
+target_link_libraries  (test-format PRIVATE sysrt)
+target_link_libraries  (test-format PRIVATE _startup)

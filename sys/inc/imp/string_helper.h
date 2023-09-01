@@ -16,6 +16,9 @@ _SYS_BEGIN_NS
 /// Throws error_bounds
 void throw_error_bounds(size_t bad_val, size_t max_val = size_t(-1));
 
+/// Throws error_length
+void throw_error_length();
+
 _SYS_END_NS
 
 #endif // ifndef sys_imp_string_helper__included

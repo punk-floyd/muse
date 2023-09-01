@@ -1,6 +1,7 @@
 #include <app.h>
 
 #include <type_traits_.h>
+#include <string_.h>
 #include <format_.h>
 #include <error_.h>
 
@@ -47,8 +48,6 @@ public:
 
     int _a{0};
 };
-
-#include <vector_.h>
 
 class True : public sys::app
 {

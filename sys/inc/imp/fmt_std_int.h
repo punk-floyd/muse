@@ -40,8 +40,29 @@ struct formatter<T> : public formatter_std
 
     static void format_work(const format_spec_t& fs, const format_arg& fmt_arg, format_context& fmt_ctx)
     {
-        // The format argument value
-        auto val = fmt_arg.get_variant().template get<T>();
+        auto get_val = [](const format_arg& arg){
+            if constexpr (is_unsigned_v<T>) {
+                if      constexpr (sizeof(T) ==  1) return arg.get_variant().get<uint8_t>();
+                else if constexpr (sizeof(T) ==  2) return arg.get_variant().get<uint16_t>();
+                else if constexpr (sizeof(T) ==  4) return arg.get_variant().get<uint32_t>();
+                else if constexpr (sizeof(T) ==  8) return arg.get_variant().get<uint64_t>();
+                else if constexpr (sizeof(T) == 16) return arg.get_variant().get<uint128_t>();
+                else static_assert(dependent_false_v<T>, "Unsigned integral type is too large");
+            }
+            else if constexpr (is_signed_v<T>) {
+                if      constexpr (sizeof(T) ==  1) return arg.get_variant().get<sint8_t>();
+                else if constexpr (sizeof(T) ==  2) return arg.get_variant().get<sint16_t>();
+                else if constexpr (sizeof(T) ==  4) return arg.get_variant().get<sint32_t>();
+                else if constexpr (sizeof(T) ==  8) return arg.get_variant().get<sint64_t>();
+                else if constexpr (sizeof(T) == 16) return arg.get_variant().get<sint128_t>();
+                else static_assert(dependent_false_v<T>, "Signed integral type is too large");
+            }
+            else {
+                static_assert(dependent_false_v<T>);
+            }
+        };
+
+        auto val = get_val(fmt_arg);
 
         // Resolve field width argument
         size_t width = fs.width_in_arg
@@ -197,8 +218,13 @@ struct formatter<bool> final : public formatter_std
     }
 };
 
+// Formatter for nullptr_t or any pointer, except [const] char*; they're
+// handled by the string code in fmt_std_str.h.
 template <class T>
-    requires is_pointer_v<T> || is_same_v<T, nullptr_t>
+    requires is_same_v<T, nullptr_t> ||
+        (is_pointer_v<T>
+            && !is_same_v<remove_cvref_t<T>, const char*>
+            && !is_same_v<remove_cvref_t<T>,       char*>)
 struct formatter<T> final : public formatter_std
 {
     using my_base = formatter_std;
@@ -213,10 +239,13 @@ struct formatter<T> final : public formatter_std
     /// Format output into given sink
     constexpr void format(const format_arg& fmt_arg, format_context& fmt_ctx) override
     {
-        // The format argument value
-        auto val = fmt_arg.get_variant().template get<T>();
+        // TODO : Fix this up when we have "visit" capabilities
+        format_arg up_arg;
+        if constexpr (is_same_v<remove_cvref_t<T>, nullptr_t>)
+            up_arg = format_arg{bit_cast<unsigned long>(fmt_arg.get_variant().get<nullptr_t>())};
+        else
+            up_arg = format_arg{bit_cast<unsigned long>(fmt_arg.get_variant().get<const void*>())};
 
-        format_arg up_arg{bit_cast<unsigned long>(val)};    // MOOMOO uintptr_t when we have converting cx
         format_spec_t fs{this->get_format_spec()};
         fs.type = 'x';
         fs.alt_form = true;
@@ -225,7 +254,6 @@ struct formatter<T> final : public formatter_std
             fs.width = sizeof(uintptr_t) << 1;
         formatter<unsigned long>::format_work(fs, up_arg, fmt_ctx);
     }
-
 };
 
 _SYS_END_NS

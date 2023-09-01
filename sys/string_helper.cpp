@@ -21,4 +21,10 @@ void throw_error_bounds(size_t bad_val, size_t max_val)
     throw error_bounds_ex(bad_val, max_val);
 }
 
+/// Throws error_length
+void throw_error_length()
+{
+    throw error_length();
+}
+
 _SYS_END_NS

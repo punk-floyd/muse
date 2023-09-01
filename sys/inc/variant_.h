@@ -66,7 +66,7 @@ struct variant_traits {
 // Variant storage; uses recursive union
 namespace imp {
 
-    /// var_store_work: Recursive storage for formatter objects
+    /// var_store_work: Recursive storage for variant alternates
     template <class... Alts>
     union var_store_work;      // Primary template
 
@@ -207,14 +207,41 @@ public:
         construct_idx<Idx>(il, forward<Args>(args)...);
     }
 
-    /// Converting constructor
+    /// Construct from an alternative type (non-array T)
     template <class T>
-        requires (!is_same_v<remove_cvref_t<T>, variant<Types...>>
+        requires (!is_array_v<remove_cvref_t<T>>
+            && tl::unique<my_types, remove_cvref_t<T>>
+            && is_constructible_v<remove_cvref_t<T>, T>
+        )
+    constexpr variant(T&& t)
+        noexcept(is_nothrow_constructible_v<tl::type_at<my_types, tl::find_first<my_types, remove_cvref_t<T>>>, T>)
+    {
+        constexpr auto type_idx = tl::find_first<my_types, remove_cvref_t<T>>;
+        construct_idx<type_idx>(sys::forward<T>(t));
+    }
+
+    /// Construct from an alternative type (decay array T; e.g. const char (&)[N] -> const char*)
+    template <class T>
+        requires (is_array_v<remove_cvref_t<T>>
+            && tl::unique<my_types, remove_cvref_t<decay_t<T>>>
+            && is_constructible_v<remove_cvref_t<decay_t<T>>, T>
+        )
+    constexpr variant(T&& t)
+        noexcept(is_nothrow_constructible_v<tl::type_at<my_types, tl::find_first<my_types, remove_cvref_t<T>>>, T>)
+    {
+        constexpr auto type_idx = tl::find_first<my_types, remove_cvref_t<decay_t<T>>>;
+        construct_idx<type_idx>(sys::forward<T>(t));
+    }
+
+    /// Converting constructor (from non-array)
+    template <class T>
+        requires (!tl::contains<my_types, remove_cvref_t<T>>
+            && !is_same_v<remove_cvref_t<T>, variant<Types...>>
             && !is_specialization_size_t<remove_cvref_t<T>, in_place_index_t>::value
             && !is_specialization       <remove_cvref_t<T>, in_place_type_t>::value
             && (1 == (0 + ... + (imp::is_var_convertible<Types, T> ? 1 : 0)))
         )
-    variant(T&& t)
+    constexpr variant(T&& t)
         noexcept(is_nothrow_constructible_v<tl::type_at<my_types, imp::var_convertible_idx<T, 0, Types...>()>, T>)
     {
         constexpr auto type_idx = imp::var_convertible_idx<T, 0, Types...>();
@@ -242,6 +269,11 @@ public:
     /// Checks if the variant is in the invalid state
     constexpr bool is_valueless() const noexcept
         { return get_index() == variant_npos; }
+
+    /// Returns true if \tparam T is an alternative type
+    template <class T>
+    static constexpr bool is_alternative_type() noexcept
+        { return tl::contains<my_types, T>; }
 
     // -- Accessors
 
@@ -335,6 +367,60 @@ public:
             homogeneous_move_assign_imp(move(rhs));
         else
             heterogeneous_move_assign_imp(move(rhs));
+
+        return *this;
+    }
+
+    /// Assign from an alternative type (non-array T)
+    template <class T>
+        requires (!is_array_v<remove_cvref_t<T>>
+            && tl::unique<my_types, remove_cvref_t<T>>
+            && is_assignable_v<remove_cvref_t<T>, T>
+        )
+    constexpr variant& operator=(T&& t)
+        noexcept(is_nothrow_assignable_v<tl::type_at<my_types, tl::find_first<my_types, remove_cvref_t<T>>>, T>)
+    {
+        if (!is_valueless())
+            release();
+
+        constexpr auto type_idx = tl::find_first<my_types, remove_cvref_t<T>>;
+        emplace<type_idx>(sys::forward<T>(t));
+
+        return *this;
+    }
+
+    /// Assign from an alternative type (decay array T)
+    template <class T>
+        requires (is_array_v<remove_cvref_t<T>>
+            && tl::unique<my_types, remove_cvref_t<decay_t<T>>>
+            && is_assignable_v<remove_cvref_t<decay_t<T>>, T>
+        )
+    constexpr variant& operator=(T&& t)
+        noexcept(is_nothrow_assignable_v<tl::type_at<my_types, tl::find_first<my_types, remove_cvref_t<T>>>, T>)
+    {
+        if (!is_valueless())
+            release();
+
+        constexpr auto type_idx = tl::find_first<my_types, remove_cvref_t<decay_t<T>>>;
+        emplace<type_idx>(sys::forward<T>(t));
+
+        return *this;
+    }
+
+    /// Converting assignment
+    template <class T>
+        requires (!tl::contains<my_types, remove_cvref_t<T>>
+            && !is_same_v<remove_cvref_t<T>, variant<Types...>>
+            && (1 == (0 + ... + (imp::is_var_convertible<Types, T> ? 1 : 0)))
+        )
+    constexpr variant& operator=(T&& t)
+        noexcept(is_nothrow_assignable_v<tl::type_at<my_types, imp::var_convertible_idx<T, 0, Types...>()>, T>)
+    {
+        if (!is_valueless())
+            release();
+
+        constexpr auto type_idx = imp::var_convertible_idx<T, 0, Types...>();
+        emplace<type_idx>(sys::forward<T>(t));
 
         return *this;
     }

@@ -71,12 +71,53 @@ public:
     constexpr size_type max_size() const noexcept
         { return size_type(-1) - lm_bit; }
 
+    /** Calculate the new capacity to use for a minimal requested capacity
+     *
+     * This function is called when we've determined that adding one or more
+     * elements will exceed the current capacity. It figures out what the
+     * new capacity should be.
+     *
+     * This function does not adjust the capacity!
+     *
+     * @param cap_request   The requested capacity, which serves as the
+     *  minimal capacity that we'll need. Depending on state, we may want
+     *  to allocate more than this.
+     *
+     * @return Returns the size that we should increase the capacity to.
+    */
+    constexpr size_type calc_new_capacity(size_type cap_request) const
+    {
+        // Make sure requested minimal capacity is not too large
+        if (cap_request > max_size()) [[unlikely]]
+            throw_error_length();
+
+        // If we are presently empty, then we'll use the requested capacity
+        // as-is. This will be the case for things like construction or an
+        // initial assignment. It'll require a single allocation of optimal
+        // length.
+        if (0 == capacity())
+            return cap_request;
+
+        // If we're not empty, then we're growing the buffer. In this case,
+        // we want to double the current capacity until it's large enough to
+        // hold the requested capacity.
+        size_type cap_try = capacity() * 2;
+        if (0 == cap_try)
+            cap_try = 1;
+        while (cap_try < cap_request) {
+            if (sys::multiply_overflow(cap_try, 2, cap_try) || (cap_try > max_size())) [[unlikely]]
+                cap_try = cap_request;
+        }
+
+        return cap_try;
+    }
+
     constexpr char_t* ensure_buf(size_type count, bool set_length = true)
     {
         if (count > capacity()) {
 
-            // We allocate capacity + 1 so there's always room for a NULL terminator
-            char_t* new_data = new char_t[count + 1];
+            // count + 1: +1 for the NULL terminator
+            char_t* new_data = new char_t[calc_new_capacity(count + 1)];
             if (data() && length())
                 traits_t::copy(new_data, data(), length());
 

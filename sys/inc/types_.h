@@ -31,8 +31,8 @@ using sint128_t = __int128;
 using uintmax_t = __uintmax_t;
 using sintmax_t = __intmax_t;
 
-using uintptr_t = unsigned __intptr_t;
-using sintptr_t = __intptr_t;
+using uintptr_t = unsigned long;
+using sintptr_t = long;
 
 using time_t = __time_t;
 
