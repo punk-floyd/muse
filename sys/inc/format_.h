@@ -20,6 +20,7 @@
 #include "imp/fmt_std.h"
 #include "imp/fmt_args.h"
 #include "imp/fmt_parse.h"
+#include "imp/fmt_buf.h"
 
 _SYS_BEGIN_NS
 

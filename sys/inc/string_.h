@@ -177,6 +177,12 @@ public:
             traits_t::fill(data() + og_len, ch, count - og_len);
     }
 
+    /// Reserves storage
+    constexpr void reserve(size_type count)
+    {
+        (void)ensure_buf(count, false, true);
+    }
+
     // - Clearing and deleting pieces of string
 
     /// Clear string content (including reserve)
@@ -977,8 +983,8 @@ public:
         { return _sbuf.length(); }
     constexpr size_type capacity() const noexcept
         { return _sbuf.capacity(); }
-    constexpr size_type max_size() const noexcept
-        { return _sbuf.max_size(); }
+    static constexpr size_type max_size() noexcept
+        { return imp::string_buf::max_size(); }
 
     /// Returns maximum capacity for short string optimized (sso) strings
     static constexpr size_type sso_capacity() noexcept
@@ -986,9 +992,33 @@ public:
 
 private:
 
-    constexpr char_t* ensure_buf(size_type count, bool set_length = true)
+    /**
+     * @brief Ensure our buffer is large enough to hold \p count items
+     *
+     * This method ensures that our buffer is large enough to hold the
+     * specified number of elements. If the buffer is already large enough
+     * to hold at least \p count items then the current buffer is
+     * unmodified. This method will never shrink the existing buffer.
+     *
+     * If the existing buffer is too small to hold \p count items then a new
+     * buffer will be allocated. The size of the new buffer may be larger
+     * than the requested minimum size.
+     *
+     * @param count             The minimum capacity that we need
+     * @param set_length        If true, set length to specified capacity
+     * @param explicit_reserve  If true, this is a request for a specific
+     *  capacity from external code (i.e., a reserve call), in which case
+     *  the new capacity (if one is needed) will be the requested count.
+     *  This parameter is false in most cases (copying, inserting,
+     *  appending, etc.) which allows us to use some kind of growth
+     *  strategy.
+     *
+     * @return Returns the buffer address
+     */
+    constexpr char_t* ensure_buf(size_type count, bool set_length = true,
+        bool explicit_reserve = false)
     {
-        return _sbuf.ensure_buf(count, set_length);
+        return _sbuf.ensure_buf(count, set_length, explicit_reserve);
     }
 
     /// Check that iterator is valid for this string

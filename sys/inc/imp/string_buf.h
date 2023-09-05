@@ -68,7 +68,7 @@ public:
         { return internal_get_length(); }
     constexpr size_type capacity() const noexcept
         { return is_long_mode() ? _state.ls.cap : sso_capacity(); }
-    constexpr size_type max_size() const noexcept
+    static constexpr size_type max_size() noexcept
         { return size_type(-1) - lm_bit; }
 
     /** Calculate the new capacity to use for a minimal requested capacity
@@ -112,12 +112,15 @@ public:
         return cap_try;
     }
 
-    constexpr char_t* ensure_buf(size_type count, bool set_length = true)
+    constexpr char_t* ensure_buf(size_type count, bool set_length = true, bool explicit_reserve = false)
     {
         if (count > capacity()) {
 
             // count + 1: +1 for the NULL terminator
-            char_t* new_data = new char_t[calc_new_capacity(count + 1)];
+            size_type new_cap =
+                explicit_reserve ? count + 1 : calc_new_capacity(count + 1);
+
+            char_t* new_data = new char_t[new_cap];
             if (data() && length())
                 traits_t::copy(new_data, data(), length());
 
