@@ -27,9 +27,6 @@ public:
 
     fmt_buf() = default;
 
-    constexpr size_type length()   const noexcept
-        { return _have_str ? _str.length() : _auto_len; }
-
     constexpr void push_back(char_t ch)
     {
         if (!_have_str) {
@@ -52,6 +49,14 @@ public:
         }
 
         _str.push_back(ch);
+    }
+
+    constexpr string&& release_string()
+    {
+        if (!_have_str && _auto_len)
+            _str.assign(_auto_buf, _auto_len);
+
+        return sys::move(_str);
     }
 
 private:

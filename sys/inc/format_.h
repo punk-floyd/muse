@@ -24,17 +24,18 @@
 
 _SYS_BEGIN_NS
 
+/// Non-template variant of sys::format using type-erased argument representation
 string vformat(string_view fmt, basic_format_args args)
 {
-    // TODO : Use a growable buffer here, then allocate string
-    string ret;
-    back_insert_iterator bit(ret);
+    imp::fmt_buf buf;
+    back_insert_iterator bit(buf);
 
     imp::parse_context pctx(args, bit);
     imp::format_parse(fmt, pctx);
-    return ret;
+    return buf.release_string();
 }
 
+/// Stores formatted representation of the arguments in a new string
 template <class... FmtArgs>
 inline string format(format_string<FmtArgs...> fmt, FmtArgs&&... args)
 {
@@ -42,6 +43,7 @@ inline string format(format_string<FmtArgs...> fmt, FmtArgs&&... args)
     return vformat(fmt.get_view(), basic_format_args(arg_store));
 }
 
+/// Determines the number of characters necessary to store formatted output
 template <class... FmtArgs>
 inline size_t formatted_size(format_string<FmtArgs...> fmt, FmtArgs&&... args)
 {
