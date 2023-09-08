@@ -11,6 +11,7 @@
 
 #include <_core_.h>
 #include <compare_.h>
+#include <functional_.h>
 
 _SYS_BEGIN_NS
 
@@ -113,13 +114,13 @@ struct back_insert_iterator
     using container_type    = T;
 
     constexpr explicit back_insert_iterator(T& container) noexcept
-        : _cont(&container)
+        : _cont(container)
     {}
 
     constexpr back_insert_iterator& operator=(const typename T::value_type& value)
-        { _cont->push_back(value); return *this; }
+        { _cont.get().push_back(value); return *this; }
     constexpr back_insert_iterator& operator=(typename T::value_type&& value)
-        { _cont->push_back(sys::move(value)); return *this; }
+        { _cont.get().push_back(sys::move(value)); return *this; }
 
     constexpr back_insert_iterator& operator*() noexcept
         { return *this; }
@@ -130,7 +131,7 @@ struct back_insert_iterator
 
 protected:
 
-    container_type* _cont;      // MDTODO : reference wrapper here
+    ref_wrap<container_type>    _cont;
 };
 
 /// Output iterator that does nothing with elements

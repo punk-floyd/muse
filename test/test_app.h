@@ -25,7 +25,6 @@ public:
                 stout()->out(msg);
             }
             stout()->out("\n");
-            // MDTODO : Update that when we have formatted output
         }
 
         return b;
