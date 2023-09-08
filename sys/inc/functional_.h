@@ -96,7 +96,8 @@ concept invocable =
 template <class F, class... Args>
 concept nothrow_invocable =
     requires (F&& f, Args&&... args) {
-        requires noexcept (imp::INVOKE(forward<F>(f), forward<Args>(args)...));
+        imp::INVOKE(forward<F>(f), forward<Args>(args)...);
+        requires noexcept(forward<F>(f)(forward<Args>(args)...));
     };
 
 namespace imp {
@@ -164,7 +165,7 @@ public:
     // Operator() : Call the stored function
     template <class... Args>
     constexpr invoke_result_t<T&, Args...> operator()(Args&&... args) const
-        //noexcept(is_nothrow_invocable_v<T&, Args...>) MOOMOO Not working. I_AM_HERE
+        noexcept(is_nothrow_invocable_v<T&, Args...>)
     {
         return (*_ptr)(forward<Args>(args)...);
     }
