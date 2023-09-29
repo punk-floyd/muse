@@ -381,7 +381,7 @@ namespace std {
     // context. No other namespace is allowed.
 
     template <class T, class... Args>
-    [[nodiscard]] constexpr T* construct_at(T* p, Args&&... args)
+    constexpr T* construct_at(T* p, Args&&... args)
         noexcept(sys::is_nothrow_constructible_v<T, Args...>)
     {
         return ::new(static_cast<void*>(p)) T(sys::forward<Args>(args)...);

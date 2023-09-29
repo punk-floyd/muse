@@ -53,7 +53,7 @@ public:
     constexpr string() noexcept = default;
 
     /// Construct from your grand pappy's NULL-terminated string
-    constexpr explicit string(const char_t* s)
+    constexpr string(const char_t* s)
     {
         auto len = traits_t::length(s);
         traits_t::copy(ensure_buf(len), s, len);

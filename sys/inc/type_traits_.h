@@ -557,6 +557,8 @@ struct is_specialization : false_type {};
 template <template <class...> class Template, class... Args>
 struct is_specialization<Template<Args...>, Template> : true_type {};
 
+// TODO : is_specialization_v
+
 template <class T, template <size_t> class Template>
 struct is_specialization_size_t : false_type {};
 template <template <size_t> class Template, size_t Arg>

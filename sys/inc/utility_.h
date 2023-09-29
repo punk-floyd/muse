@@ -110,6 +110,9 @@ template <class T> inline constexpr in_place_type_t<T> in_place_type{};
 template <size_t T> struct in_place_index_t { explicit in_place_index_t() = default; };
 template <size_t T> inline constexpr in_place_index_t<T> in_place_index{};
 
+struct in_place_t { explicit in_place_t() = default; };
+inline constexpr in_place_t in_place{};
+
 _SYS_END_NS
 
 #endif // ifndef sys_Utility__included
