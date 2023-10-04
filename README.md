@@ -87,6 +87,8 @@ Headers:
    implemented under the hood by pthreads.
  - [new_.h](sys/inc/new_.h) - Implements new and friends; backed by gcc
    intrinsic __builtin_malloc.
+ - [optional_.h](sys/inc/optional_.h) - A constexpr wrapper that may or may
+   not hold an object.
  - [shared_string_.h](sys/inc/shared_string_.h) - A shared read-only string
    object. Used by sys::exception and friends so we can have noexcept copy
    constructors.
@@ -103,9 +105,8 @@ Headers:
  - [utility_.h](sys/inc/utility_.h) - General utility classes:
     - sys::swap and collateral.
     - sys::min_v/sys::max_v: Type-safe min/max support.
- - [variant_.h](sys/inc/variant_.h) (sys::variant) - A mostly complete
-   implementation of a constexpr friendly variant class. Not yet supported:
-   converting constructors.
+ - [variant_.h](sys/inc/variant_.h) (sys::variant) - An implementation of a
+   constexpr friendly variant class.
  - [vector_.h](sys/inc/vector_.h) (sys::vector) - Generic dynamic contiguous
    array. Roughly equivalent to std::vector but does not support custom
    allocators. Offers strong exception guarantee for all operations that can

@@ -11,6 +11,7 @@
 
 #include <_core_.h>
 #include <type_traits_.h>
+#include <concepts_.h>
 #include <utility_.h>
 #include <memory_.h>
 #include <error_.h>
@@ -80,12 +81,8 @@ public:
             !is_trivially_copy_constructible_v<value_type>
         )
     {
-        if (cpy) {
-            _u.val_oui = cpy.value();
-            _have_value = true;
-        }
-        else
-            _u.val_non = no_value_type{};
+        if (cpy)
+            construct_value(*cpy);
     }
 
     /// Move constructor (deleted)
@@ -105,25 +102,9 @@ public:
             !is_trivially_move_constructible_v<value_type>
         )
     {
-        if (rhs) {
-            _u.val_oui  = sys::move(*rhs);
-            _have_value = true;
-        }
-        else
-            _u.val_non = no_value_type{};
+        if (rhs)
+            construct_value(sys::move(*rhs));
     }
-
-protected:
-
-    template <class... Args>
-        requires is_constructible_v<value_type, Args...>
-    void construct_value(Args&&... args)
-    {
-        construct_at(&_u.val_oui, forward<Args>(args)...);
-        _have_value = true;
-    }
-
-public:
 
     /// Converting copy constructor
     template <class U>
@@ -204,14 +185,22 @@ public:
     // -- Observers
 
     // - Accesses the contained value; undefined if we don't have a value
-    constexpr const T* operator->() const   noexcept { return &_u.val_oui; }
-    constexpr       T* operator->()         noexcept { return &_u.val_oui; }
-    constexpr const T& operator*()  const&  noexcept { return _u.val_oui; }
-    constexpr       T& operator*()       &  noexcept { return _u.val_oui; }
-    constexpr const T&& operator*() const&& noexcept { return sys::move(_u.val_oui); }
-    constexpr       T&& operator*()      && noexcept { return sys::move(_u.val_oui); }
+    constexpr const value_type*  operator->() const  noexcept { return &_u.val_oui; }
+    constexpr       value_type*  operator->()        noexcept { return &_u.val_oui; }
+    constexpr const value_type&  operator*()  const& noexcept { return _u.val_oui; }
+    constexpr       value_type&  operator*()       & noexcept { return _u.val_oui; }
+    constexpr const value_type&& operator*() const&& noexcept { return sys::move(_u.val_oui); }
+    constexpr       value_type&& operator*()      && noexcept { return sys::move(_u.val_oui); }
 
 protected:
+
+    template <class... Args>
+        requires is_constructible_v<value_type, Args...>
+    constexpr void construct_value(Args&&... args)
+    {
+        construct_at(&_u.val_oui, forward<Args>(args)...);
+        _have_value = true;
+    }
 
     constexpr void check_value() const
     {
@@ -233,10 +222,10 @@ protected:
 public:
 
     // - Access the contained value; throws error_optional_access if value-less
-    constexpr const T&  value() const  & { check_value(); return _u.val_oui; }
-    constexpr       T&  value()        & { check_value(); return _u.val_oui; }
-    constexpr const T&& value() const && { check_value(); return sys::move(_u.val_oui); }
-    constexpr       T&& value()       && { check_value(); return sys::move(_u.val_oui); }
+    constexpr const value_type&  value() const  & { check_value(); return _u.val_oui; }
+    constexpr       value_type&  value()        & { check_value(); return _u.val_oui; }
+    constexpr const value_type&& value() const && { check_value(); return sys::move(_u.val_oui); }
+    constexpr       value_type&& value()       && { check_value(); return sys::move(_u.val_oui); }
 
     /// Returns the contained value if available, another value otherwise
     template <class U>
@@ -558,7 +547,45 @@ private:
 // Deduction guide - Handles non-copyable arguments and array to pointer conversion
 template <class T> optional(T) -> optional<T>;
 
-// TODO : Comparison (<=>, ==)
+template <class T, class U>
+constexpr bool operator==(const optional<T>& lhs, const optional<U>& rhs)
+{
+    return (lhs && rhs) ? (*lhs == *rhs) : (!lhs && !rhs);
+}
+
+template <class T, three_way_comparable_with<T> U>
+constexpr compare_three_way_result_t<T, U>
+    operator<=> (const optional<T>& lhs, const optional<U>& rhs)
+{
+    return (lhs && rhs) ? (*lhs <=> *rhs) : (lhs.has_value() <=> rhs.has_value());
+}
+
+template <class T>
+constexpr bool operator==(const optional<T>& opt, nullopt_t) noexcept
+{
+    return !opt;
+}
+
+template <class T>
+constexpr strong_ordering operator<=>(const optional<T>& opt, nullopt_t) noexcept
+{
+    return opt.has_value() <=> false;
+}
+
+template <class T, class U>
+constexpr bool operator==(const optional<T>& opt, const U& val)
+{
+    return opt ? (*opt == val) : false;
+}
+
+template <class T, class U>
+    requires (!is_specialization<U, optional>::value) &&
+        three_way_comparable_with<T, U>
+constexpr compare_three_way_result_t<T, U>
+    operator<=> (const optional<T>& opt, const U& val)
+{
+    return opt ? (*opt <=> val) : strong_ordering::less;
+}
 
 _SYS_END_NS
 

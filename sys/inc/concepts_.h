@@ -113,5 +113,4 @@ concept partially_ordered_with =
 
 _SYS_END_NS
 
-
 #endif // ifndef sys_concepts__included

@@ -261,9 +261,42 @@ namespace imp {
 
 template <class T, class Cat = partial_ordering>
 concept three_way_comparable =
-    equality_comparable<T, T> && partially_ordered_with<T, T> &&
+    equality_comparable<T, T> &&
+    partially_ordered_with<T, T> &&
     requires (const remove_reference_t<T>& a, const remove_reference_t<T>& b) {
         { a <=> b } -> imp::three_way_compares_as<Cat>;
+    };
+
+namespace imp {
+    template <class T, class U,
+        class C = common_reference_t<const T&, const U&>>
+    concept ComparisonCommonTypeWithImpl =
+        same_as<common_reference_t<const T&, const U&>,
+                common_reference_t<const T&&, const U&&>> &&
+        requires {
+            requires converible_to<const T&, const C&> ||
+                     converible_to<T,        const T&>;
+            requires converible_to<const U&, const C&> ||
+                     converible_to<U,        const C&>;
+        };
+
+    template <class T, class U>
+    concept ComparisonCommonTypeWith =
+        ComparisonCommonTypeWithImpl<remove_cvref_t<T>, remove_cvref_t<U>>;
+}
+
+template <class T, class U, class Cat = partial_ordering>
+concept three_way_comparable_with =
+    three_way_comparable<T, Cat> &&
+    three_way_comparable<U, Cat> &&
+    imp::ComparisonCommonTypeWith<T, U> &&
+    three_way_comparable<common_reference_t<
+        const remove_reference_t<T>&, const remove_reference_t<U>&>, Cat> &&
+    equality_comparable<T, U> &&
+    partially_ordered_with<T, U> &&
+    requires (const remove_reference_t<T>& t, const remove_reference_t<U>& u) {
+        { t <=> u } -> imp::three_way_compares_as<Cat>;
+        { u <=> t } -> imp::three_way_compares_as<Cat>;
     };
 
 _SYS_END_NS

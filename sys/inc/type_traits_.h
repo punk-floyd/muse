@@ -208,6 +208,17 @@ template <class T> using  add_const_t = typename imp::add_const<T>::type;
 /// Add volatile to the type
 template <class T> using  add_volatile_t = typename imp::add_volatile<T>::type;
 
+namespace imp {
+    /// Copy top level cv-qualifiers from another type
+    template <class From, class To> struct copy_cv                          { using type = To; };
+    template <class From, class To> struct copy_cv<const volatile From, To> { using type = add_cv_t<To>; };
+    template <class From, class To> struct copy_cv<      volatile From, To> { using type = add_volatile_t<To>; };
+    template <class From, class To> struct copy_cv<const          From, To> { using type = add_const_t<To>; };
+}
+
+/// Copy top level cv-qualifiers from another type
+template <class From, class To> using copy_cv_t = typename imp::copy_cv<remove_reference_t<From>, To>::type;
+
 /// Obtains an rvalue reference
 template <class T>
 [[nodiscard]] constexpr remove_reference_t<T>&& move(T&& t) noexcept
@@ -642,6 +653,181 @@ struct common_type<T1, T2, Ts...> {
 };
 
 template <class... T> using common_type_t = common_type<T...>::type;
+
+// -- common_reference<...> implementation ---------------------------------
+
+/// Customization point that allows users to influence the result of common_reference for user-defined types
+template <class T, class U, template<class> class TQual, template<class> class UQual>
+struct basic_common_reference {};
+
+namespace imp {
+
+    // -- common_ref - common reference between two types
+
+    template <class T, class U>
+    using cr_cond_res_t = decltype(false ? declval<T>() : declval<U>());
+
+    // Primary template
+    template <class A, class B>
+    struct common_ref {};
+
+    // - Both l-value references
+
+    template<class A, class B,
+        class X = remove_reference_t<A>, class Y = remove_reference_t<B>>
+    concept common_ref_ll =
+        is_lvalue_reference_v<A> && is_lvalue_reference_v<B> &&
+        requires { typename cr_cond_res_t<copy_cv_t<X, Y> &, copy_cv_t<Y, X> &>; };
+
+    template <class A, class B>
+        requires common_ref_ll<A,B>
+    struct common_ref<A,B> {
+        using X = remove_reference_t<A>;
+        using Y = remove_reference_t<B>;
+        using type = cr_cond_res_t<copy_cv_t<X, Y> &, copy_cv_t<Y, X> &>;
+    };
+
+    // Both r-value references
+
+    template <class X, class Y>
+    using common_ref_rr_c =
+        add_rvalue_reference_t<remove_reference_t<typename common_ref<X&, Y&>::type>>;
+
+    template<class A, class B,
+        class X = remove_reference_t<A>, class Y = remove_reference_t<B>>
+    concept common_ref_rr =
+        is_rvalue_reference_v<A> && is_rvalue_reference_v<B> &&
+        requires { typename common_ref_rr_c<X, Y>; } &&
+        is_convertible_v<A, common_ref_rr_c<X, Y>> &&
+        is_convertible_v<B, common_ref_rr_c<X, Y>>;
+
+    template <class A, class B>
+        requires common_ref_rr<A, B>
+    struct common_ref<A,B> {
+        using X = remove_reference_t<A>;
+        using Y = remove_reference_t<B>;
+        using type = common_ref_rr_c<X, Y>;
+    };
+
+    // A is an rvalue reference and B is an lvalue reference
+
+    template <class X, class Y>
+    using common_ref_rl_d = typename common_ref<const X&, Y&>::type;
+
+    template<class A, class B,
+        class X = remove_reference_t<A>, class Y = remove_reference_t<B>>
+    concept common_ref_rl =
+        is_rvalue_reference_v<A> && is_lvalue_reference_v<B> &&
+        requires { typename common_ref_rl_d<X, Y>; } &&
+        is_convertible_v<A, common_ref_rl_d<X, Y>>;
+
+    template <class A, class B>
+        requires common_ref_rl<A, B>
+    struct common_ref<A,B> {
+        using X = remove_reference_t<A>;
+        using Y = remove_reference_t<B>;
+        using type = common_ref_rl_d<X, Y>;
+    };
+
+    // A is an lvalue reference and B is an rvalue reference
+
+    template<class A, class B,
+        class X = remove_reference_t<A>, class Y = remove_reference_t<B>>
+    concept common_ref_lr =
+        is_lvalue_reference_v<A> && is_rvalue_reference_v<B>;
+
+    template <class A, class B>
+        requires common_ref_lr<A, B>
+    struct common_ref<A,B> : common_ref<B,A> {};
+
+    // -- common_reference - common reference between N types
+
+    // Primary template
+    template <class... Ts>
+    struct common_reference{};
+
+    // - One type
+
+    template <class T>
+    struct common_reference<T>
+    {
+        using type = T;
+    };
+
+    // - Two types
+
+    // Two types: Case 1: a simple common reference
+    template <class T1, class T2>
+    concept cr2_case1 =
+        is_reference_v<T1> && is_reference_v<T2> &&
+        requires { typename common_ref<T1, T2>::type; };
+
+    template <class T1, class T2>
+        requires cr2_case1<T1, T2>
+    struct common_reference<T1,T2>
+    {
+        using type = common_ref<T1, T2>::type;
+    };
+
+    // Two types: Case 2: Hook for basic_common_reference
+
+    template <class T>
+    struct xref      { template<class U> using type = copy_cv_t<T, U>; };
+    template <class T>
+    struct xref<T&>  { template<class U> using type = add_lvalue_reference_t<copy_cv_t<T, U>>; };
+    template <class T>
+    struct xref<T&&> { template<class U> using type = add_rvalue_reference_t<copy_cv_t<T, U>>; };
+
+    template <class T1, class T2>
+    concept cr2_case2 = requires
+        { typename basic_common_reference<remove_cvref_t<T1>, remove_cvref_t<T2>,
+            xref<T1>::template type, xref<T2>::template type>::type; };
+
+    template <class T1, class T2>
+        requires (!cr2_case1<T1,T2> && cr2_case2<T1,T2>)
+    struct common_reference<T1,T2>
+    {
+        using type = basic_common_reference<remove_cvref_t<T1>, remove_cvref_t<T2>,
+            xref<T1>::template type, xref<T2>::template type>::type;
+    };
+
+    // Two types: Case 3: cr_cond_res_t
+    template <class T1, class T2>
+    concept cr2_case3 = requires { typename cr_cond_res_t<T1,T2>; };
+
+    template <class T1, class T2>
+        requires (!cr2_case1<T1,T2> && !cr2_case2<T1,T2> && cr2_case3<T1,T2>)
+    struct common_reference<T1,T2>
+    {
+        using type = cr_cond_res_t<T1,T2>;
+    };
+
+    // Two types: Case 4: common_type_t
+    template <class T1, class T2>
+    concept cr2_case4 = requires { typename common_type_t<T1,T2>; };
+
+    template <class T1, class T2>
+        requires (!cr2_case1<T1,T2> && !cr2_case2<T1,T2> && !cr2_case3<T1,T2> && cr2_case4<T1,T2>)
+    struct common_reference<T1,T2>
+    {
+        using type = common_type_t<T1,T2>;
+    };
+
+    // - Three or more types
+
+    template <class T1, class T2, class... TN>
+        requires (sizeof...(TN) > 0) &&
+            requires { typename common_reference<T1,T2>::type; }
+    struct common_reference<T1,T2,TN...>
+    {
+        using C = typename common_reference<T1, T2>::type;
+        using type = typename common_reference<C, TN...>::type;
+    };
+}
+
+/// The common reference type over all \tparam Ts
+template <class... Ts>
+using common_reference_t = imp::common_reference<Ts...>::type;
 
 _SYS_END_NS
 
