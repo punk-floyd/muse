@@ -37,7 +37,7 @@ My assumptions:
  - I'm building on a GCC that supports C++20 (presently gcc-12)
  - I'm running on a UNIX like OS (presently Debian flavored Linux)
 
-# The state of things (August 2023)
+# The state of things (October 2023)
 
 ## C++ Runtime (sys)
 
@@ -89,6 +89,8 @@ Headers:
    intrinsic __builtin_malloc.
  - [optional_.h](sys/inc/optional_.h) - A constexpr wrapper that may or may
    not hold an object.
+ - [print_.h](sys/inc/print_.h) - Implements print and println; formatted
+   output to standard output.
  - [shared_string_.h](sys/inc/shared_string_.h) - A shared read-only string
    object. Used by sys::exception and friends so we can have noexcept copy
    constructors.
