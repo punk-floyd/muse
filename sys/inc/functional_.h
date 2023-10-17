@@ -41,7 +41,10 @@ namespace imp {
     struct invoke_work {
         template <class F, class... Args>
         static auto call(F&& f, Args&&... args)
-            -> decltype(forward<F>(f)(forward<Args>(args)...));
+            -> decltype(forward<F>(f)(forward<Args>(args)...))
+        {
+            return forward<F>(f)(forward<Args>(args)...);
+        }
     };
 
     // Member functions and data
@@ -50,31 +53,49 @@ namespace imp {
     {
         template <class T>
             requires is_base_of_v<Base, decay_t<T>>
-        static auto get(T&& t) -> T&&;
+        static auto get(T&& t) -> T&&
+        {
+            return forward<T>(t);
+        }
 
         template <class T>
             requires is_ref_wrap_v<decay_t<T>>
-        static auto get(T&& t) -> decltype(t.get());
+        static auto get(T&& t) -> decltype(t.get())
+        {
+            return t.get();
+        }
 
         template <class T>
             requires (!is_base_of_v<Base, decay_t<T>> && !is_ref_wrap_v<decay_t<T>>)
-        static auto get(T&& t) -> decltype(*forward<T>(t));
+        static auto get(T&& t) -> decltype(*forward<T>(t))
+        {
+            return *forward<T>(t);
+        }
 
         // Member function
         template <class T, class... Args, class MT1>
             requires is_function_v<MT1>
         static auto call(MT1 Base::*pmf, T&& t, Args&&... args)
-            -> decltype((invoke_work::get(forward<T>(t)).*pmf)(forward<Args>(args)...));
+            -> decltype((invoke_work::get(forward<T>(t)).*pmf)(forward<Args>(args)...))
+        {
+            return (invoke_work::get(forward<T>(t)).*pmf)(forward<Args>(args)...);
+        }
 
         // Member data
         template <class T>
         static auto call(MT Base::*pmd, T&& t)
-            -> decltype(invoke_work::get(forward<T>(t)).*pmd);
+            -> decltype(invoke_work::get(forward<T>(t)).*pmd)
+        {
+            return invoke_work::get(forward<T>(t)).*pmd;
+        }
     };
 
     template <class F, class... Args>
     auto INVOKE(F&& f, Args&&... args)
-        -> decltype(invoke_work<decay_t<F>>::call(forward<F>(f), forward<Args>(args)...));
+        -> decltype(invoke_work<decay_t<F>>::call(forward<F>(f), forward<Args>(args)...))
+    {
+        return invoke_work<decay_t<F>>::call(forward<F>(f), forward<Args>(args)...);
+    }
 
     template <class Void, class, class...>
     struct invoke_result {};
@@ -124,6 +145,14 @@ inline constexpr bool is_nothrow_invocable_v = imp::is_nothrow_invocable<F, Args
 
 template <class F, class... Args>
 using invoke_result_t = imp::invoke_result<void, F, Args...>::type;
+
+template <class F, class... Args>
+    requires is_invocable_v<F, Args...>
+constexpr invoke_result_t<F, Args...> invoke(F&& f, Args&&... args)
+    noexcept(is_nothrow_invocable_v<F, Args...>)
+{
+    return imp::INVOKE(forward<F>(f), forward<Args>(args)...);
+}
 
 /// A reference wrapper for anything that is copy constructible and copy assignable
 template <class T>

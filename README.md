@@ -70,6 +70,8 @@ Headers:
    implementation for a constexpr-friendly, type-safe formatted output akin to
    std::format. Does not yet support floating-point data output and isn't utf-8
    friendly yet.
+ - [functional_.h](sys/inc/functional_.h) - Implements sys::ref_wrap (a clone
+   of std::reference_wrapper), sys::invoke (and sys::invoke_result_t, et al.)
  - [initializer_list_.h](sys/inc/initializer_list_.h) - Support for
    sys::initializer_list. This is another spot where the compiler assumes
    std::initializer_list to be present.
@@ -83,8 +85,8 @@ Headers:
  - [memory_.h](sys/inc/memory_.h) - Implements sys::unique_ptr. Also contains
    some constexpr friendly memory operations akin to memcopy, memset, memmove,
    etc.
- - [mutex_.h](sys/inc/mutex_.h) (sys::mutex) - Mutex implementation. Presently
-   implemented under the hood by pthreads.
+ - [mutex_.h](sys/inc/mutex_.h) - Implements sys::mutex (Presently
+   implemented under the hood by pthreads), sys::lock_guard, sys::call_once.
  - [new_.h](sys/inc/new_.h) - Implements new and friends; backed by gcc
    intrinsic __builtin_malloc.
  - [optional_.h](sys/inc/optional_.h) - A constexpr wrapper that may or may

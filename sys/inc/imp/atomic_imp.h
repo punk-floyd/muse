@@ -46,10 +46,10 @@ protected:
         { return __atomic_load_n(ptr, mem_order); }
 
     /// Performs an atomic exchange operation
-    static T imp_exchange_c(const T* ptr, T val, int mem_order) noexcept
+    static T imp_exchange_c(T* ptr, T val, int mem_order) noexcept
         { return __atomic_exchange_n(ptr, val, mem_order); }
     /// Performs an atomic exchange operation
-    static T imp_exchange_cv(const volatile T* ptr, T val, int mem_order) noexcept
+    static T imp_exchange_cv(volatile T* ptr, T val, int mem_order) noexcept
         { return __atomic_exchange_n(ptr, val, mem_order); }
 
     /// Performs an atomic compare and exchange operation
