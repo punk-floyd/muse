@@ -371,7 +371,7 @@ public:
         {
             struct A { int m; };                // Trivially copyable
             struct B { B(const B&) {} };        // Non-trivial
-            struct C { virtual void moop(); };  // Non-trivial (v-table)
+            struct C { virtual ~C(); };         // Non-trivial (v-table)
             struct D {
                 int m;
                 D (const D&) = default;         // Trivially copyable
@@ -387,7 +387,7 @@ public:
         {
             struct a { int m; };
             class  b { int a; public: int b; };
-            class  c { virtual void moop(); };
+            class  c { virtual ~c(); };
             static_assert(sys::is_standard_layout_v<a>);
             static_assert(!sys::is_standard_layout_v<b>);
             static_assert(!sys::is_standard_layout_v<c>);
@@ -397,7 +397,7 @@ public:
         {
             struct a { int m; };
             class  b { int a; public: int b; };
-            class  c { virtual void moop(); };
+            class  c { virtual ~c(); };
             static_assert(sys::is_pod_v<a>);
             static_assert(!sys::is_pod_v<b>);
             static_assert(!sys::is_pod_v<c>);
@@ -423,7 +423,7 @@ public:
         // sys::is_polymorphic
         {
             struct A {};
-            struct B { virtual void moop(); };
+            struct B { virtual ~B(); };
             struct C : B {};
             struct D { virtual ~D() = default; };
             static_assert(sys::is_polymorphic_v<B>);
@@ -435,8 +435,8 @@ public:
         // sys::is_abstract
         {
             struct A {};
-            struct B { virtual void moop(); };
-            struct C { virtual void moop() = 0;};
+            struct B { virtual ~B(); };
+            struct C { virtual ~C(); virtual void moop() = 0;};
             struct D : C {};
             static_assert(sys::is_abstract_v<C>);
             static_assert(sys::is_abstract_v<D>);
@@ -459,7 +459,7 @@ public:
             class  C { int private_x; };
             struct D { D(int, double) {} };
             struct E { int x{0}; };     // ok since C++14
-            struct F { virtual int moop(); };
+            struct F { virtual ~F(); };
             static_assert(sys::is_aggregate_v<int[]>);
             static_assert(sys::is_aggregate_v<A>);
             static_assert(sys::is_aggregate_v<A[]>);
@@ -575,7 +575,7 @@ public:
         {
             struct A { };
             struct B { int& x; B(int& a) : x(a) {} };
-            struct C { virtual void moop(); };
+            struct C { virtual ~C(); };
             static_assert(sys::is_trivially_default_constructible_v<int>);
             static_assert(sys::is_trivially_default_constructible_v<A>);
             static_assert(!sys::is_trivially_default_constructible_v<B>);
@@ -898,7 +898,6 @@ public:
         {
             static_assert(sys::extent_v<int>          == 0);
             static_assert(sys::extent_v<int[]>        == 0);
-            static_assert(sys::extent_v<int[0],       0> == 0);
             static_assert(sys::extent_v<int[1],       0> == 1);
             static_assert(sys::extent_v<int[1][2],    1> == 2);
             static_assert(sys::extent_v<int[1][2][3], 2> == 3);

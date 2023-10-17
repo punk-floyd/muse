@@ -3,6 +3,18 @@ project(muse                VERSION 1.0
         DESCRIPTION         "Mike's User Space Environment"
         LANGUAGES           CXX)
 
+set(CMAKE_CXX_STANDARD              20)
+set(CMAKE_CXX_STANDARD_REQUIRED     ON)
+
+if (MSVC)
+    add_compile_options(/permissive- /W4)
+else()
+    add_compile_options(
+        -Wall -Wextra -Wshadow -Wold-style-cast -Wunused -Wpedantic
+        -Wconversion -Wsign-conversion -Wnon-virtual-dtor
+    )
+endif()
+
 # Only do these if this is the main project, and not if it is included through add_subdirectory
 if (CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     set_property(GLOBAL PROPERTY USE_FOLDERS ON)

@@ -18,6 +18,9 @@
 
 #define SYS_INLINE          inline __attribute__((always_inline))
 
+// __extension__ : Disables pedantic warnings (-Wpedantic)
+#define SYS_INHIBIT_PEDANTIC_WARNING    __extension__
+
 _SYS_BEGIN_NS
 
 /// The type of the null pointer literal nullptr

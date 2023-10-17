@@ -71,7 +71,7 @@ Headers:
    std::format. Does not yet support floating-point data output and isn't utf-8
    friendly yet.
  - [functional_.h](sys/inc/functional_.h) - Implements sys::ref_wrap (a clone
-   of std::reference_wrapper), sys::invoke (and sys::invoke_result_t, et al.)
+   of std::reference_wrapper), sys::invoke, sys::is_invocable_t, et al.
  - [initializer_list_.h](sys/inc/initializer_list_.h) - Support for
    sys::initializer_list. This is another spot where the compiler assumes
    std::initializer_list to be present.

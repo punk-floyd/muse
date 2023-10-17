@@ -105,7 +105,7 @@ public:
         io::stout->out(format(" bool&& (true):          {}\n", true));
         io::stout->out(format(" bool&& (false):         {}\n", false));
 
-        constexpr auto asd = is_integral_v<bool>;
+        static_assert(is_integral_v<bool>);
 
         // -- Pointer things -----------------------------------------------
 

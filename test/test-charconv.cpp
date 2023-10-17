@@ -15,9 +15,9 @@ public:
         constexpr size_t cbuf_size = numeric_limits<I>::bits + 1; // +1 for possible sign
         char cbuf[cbuf_size] = {0};
 
-        auto do_to_chars = [&cbuf](const I& val, unsigned radix) {
-            auto&& [ptr,ec] = to_chars(cbuf, cbuf+sizeof(cbuf), val, radix);
-            return is_error(ec) ? string_view{} : string_view(cbuf, ptr - cbuf);
+        auto do_to_chars = [&cbuf](const I& value, unsigned radix) {
+            auto&& [ptr,ec] = to_chars(cbuf, cbuf+sizeof(cbuf), value, radix);
+            return is_error(ec) ? string_view{} : string_view(cbuf, static_cast<sys::size_t>(ptr - cbuf));
         };
 
         auto do_from_chars = [](I& value, string_view sv, unsigned radix) {
@@ -63,11 +63,11 @@ public:
 
         // Starting at radix 2, test all of the specified types. The test
         // is to convert min/max/0 values for the current radix and type
-        // into a string and then back to a value which shoulc equal the
+        // into a string and then back to a value which should equal the
         // original value.
         test_round_trips<2,     // Start at radix 2; test will go up to radix 36
-            unsigned short, unsigned int, unsigned long, unsigned long long, unsigned __int128,
-                     short,          int,          long,          long long,          __int128,
+            unsigned short, unsigned int, unsigned long, unsigned long long, uint128_t,
+                     short,          int,          long,          long long, sint128_t,
             char32_t, char16_t, char8_t, wchar_t, char, signed char, unsigned char
         >();
 

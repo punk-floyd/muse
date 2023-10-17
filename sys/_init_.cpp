@@ -8,6 +8,7 @@
  */
 #include <_core_.h>
 #include <memory_.h>
+#include <mutex_.h>
 #include <io_ofstream_.h>
 
 using namespace sys;
@@ -16,9 +17,18 @@ using namespace sys;
 unique_ptr<io::ostream> io::stout;
 unique_ptr<io::ostream> io::sterr;
 
-void _sys_init_runtime()
+static void init_runtime_work()
 {
-  //io::stin  = sys::move(make_unique<io::ifstream>(0));
-    io::stout = sys::move(make_unique<io::ofstream>(1));
-    io::sterr = sys::move(make_unique<io::ofstream>(2));
+    //io::stin  = make_unique<io::ifstream>(0);
+    io::stout = make_unique<io::ofstream>(1);
+    io::sterr = make_unique<io::ofstream>(2);
+}
+
+namespace sys::nonpublic {
+    void init_runtime()
+    {
+        // Only main should be calling this, but just in case...
+        static once_flag of;
+        call_once(of, init_runtime_work);
+    }
 }

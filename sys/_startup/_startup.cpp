@@ -12,11 +12,17 @@
 #include <app.h>
 
 extern sys::app* CreateApp();
-extern void _sys_init_runtime();
+
+namespace sys::nonpublic {
+    extern void init_runtime();
+}
 
 int main (int argc, char* argv[])
 {
-    _sys_init_runtime();
+    sys::nonpublic::init_runtime();
+
+    // Until we're ready to do something with them
+    (void)argc; (void)argv;
 
     sys::unique_ptr<sys::app> app(CreateApp());
     auto res = app->Run();

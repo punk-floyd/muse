@@ -91,6 +91,7 @@ int file::get_open_mode() const noexcept
             case O_RDWR:
             case O_RDONLY: open_mode |= io::open_mode::read;
             if (acc == O_RDONLY) break;
+            [[fallthrough]];
             case O_WRONLY: open_mode |= io::open_mode::read; break;
         }
         if (flags & O_NONBLOCK)

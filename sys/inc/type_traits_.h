@@ -12,6 +12,7 @@
 #define sys_TypeTraits__included
 
 #include <_core_.h>
+#include <types_.h>
 
 _SYS_BEGIN_NS
 
@@ -345,7 +346,7 @@ namespace imp {
         bool, char32_t, char16_t, char8_t, wchar_t, char, signed char, unsigned char,
                  short,          int,          long,          long long,
         unsigned short, unsigned int, unsigned long, unsigned long long,
-        __int128, unsigned __int128, __intptr_t, unsigned __intptr_t>> {};
+        sint128_t, uint128_t, sintptr_t, uintptr_t>> {};
 }
 
 /// Checks if type is void
