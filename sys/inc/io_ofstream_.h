@@ -24,7 +24,7 @@ class ofstream : public ostream
 public:
 
     // MOOMOO temp:
-    constexpr explicit ofstream(__file_type fd) : _file(fd) {}
+    constexpr explicit ofstream(native_file_type fd) : _file(fd) {}
 
     /// Default construction
     constexpr ofstream() { }

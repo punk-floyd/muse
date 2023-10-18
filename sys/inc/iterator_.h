@@ -88,7 +88,7 @@ struct it_contig
     friend constexpr it_contig operator- (it_contig it, difference_type n)  // it - n
         { return it -= n; }
     friend constexpr it_contig operator- (difference_type n, it_contig it)  // n - it
-        { return it -= n; }
+        { return n - it._cur; }
     friend constexpr difference_type operator- (it_contig a, it_contig b)   // it - it2
         { return a._cur - b._cur; }
 

@@ -31,7 +31,7 @@ file::file(const sys::string& pathname, int mode)
         throw 1;    // MOOMOO
 }
 
-sys::__file_type file::common_construct(const char* pathname, int mode)
+sys::native_file_type file::common_construct(const char* pathname, int mode)
 {
     // MOOMOO:  Need a routine to take a syscall result
     // and set whatever our errno will be.

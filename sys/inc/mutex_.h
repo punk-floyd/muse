@@ -10,9 +10,9 @@
 #define sys_mutex__included
 
 #include <_core_.h>
-#include <memory_.h>
 #include <atomic_.h>
 #include <functional_.h>
+#include <array_.h>
 
 _SYS_BEGIN_NS
 
@@ -25,12 +25,8 @@ public:
 
     constexpr mutex() noexcept
     {
-        sys::mem::copy_bytes(_impl, static_initializer, __sizeof_native_mutex);
+        _impl.fill(0);
     }
-
-    // No copying or moving
-    mutex(const mutex&) = delete;
-    mutex(mutex&&) = delete;
 
     /// Locks the mutex, blocks if the mutex is not available
     void lock();
@@ -46,19 +42,16 @@ public:
     // No copying or moving
     mutex& operator=(const mutex&) = delete;
     mutex& operator=(mutex&&) = delete;
+    mutex(const mutex&) = delete;
+    mutex(mutex&&) = delete;
 
 private:
 
     // Only my friends can touch my privates
     friend class mutex_native_handle;
 
-    /// Initializer for _impl
-    static const char static_initializer[__sizeof_native_mutex];
-
     /// Opaque native mutex type
-    using mux_impl_t = char[__sizeof_native_mutex];
-
-    mux_impl_t  _impl;
+    sys::array<char, nonpublic::sizeof_native_mutex> _impl;
 };
 
 template <class Mutex>
@@ -71,21 +64,23 @@ public:
     explicit lock_guard(mutex_type& mux)
         : _mux(mux)
     {
-        _mux.lock();
+        _mux.get().lock();
     }
 
-    // No copying
-    lock_guard(const lock_guard&) = delete;
-    lock_guard& operator=(const lock_guard&) = delete;
+    // No copying; moving okay
+    lock_guard(const lock_guard&)                = delete;
+    lock_guard& operator=(const lock_guard&)     = delete;
+    lock_guard(lock_guard&&) noexcept            = default;
+    lock_guard& operator=(lock_guard&&) noexcept = default;
 
     ~lock_guard()
     {
-        _mux.unlock();
+        _mux.get().unlock();
     }
 
 private:
 
-    mutex_type&     _mux;
+    sys::ref_wrap<mutex_type>     _mux;
 };
 
 /// Helper object to ensure that call_once invokes the function only once

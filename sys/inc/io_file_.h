@@ -30,7 +30,7 @@ public:
     constexpr explicit file(const T& svl, int mode)
         : _fd(common_construct(sys::string(svl).data(), mode)) { }
     /// Construct from an existing native file handle; we take control
-    constexpr explicit file(__file_type fd) : _fd(fd) {}
+    constexpr explicit file(native_file_type fd) : _fd(fd) {}
 
     /// Returns true if we manage a valid file object
     constexpr bool valid() const noexcept { return fd() != invalid_file; }
@@ -121,20 +121,20 @@ public:
     constexpr explicit operator bool() const noexcept { return valid(); }
 
     /// An invalid native file handle
-    static constexpr __file_type invalid_file = __invalid_file;
+    static constexpr native_file_type invalid_file = sys::nonpublic::invalid_native_file;
 
 protected:
 
     /// Returns underlying file handle
-    constexpr __file_type fd() const noexcept { return _fd; }
+    constexpr native_file_type fd() const noexcept { return _fd; }
 
 private:
 
-    __file_type common_construct(const char* pathname, int mode);
+    native_file_type common_construct(const char* pathname, int mode);
     /// Returns native file open flags for given open_mode
     int get_open_flags(int open_mode) const noexcept;
 
-    __file_type     _fd{invalid_file};
+    native_file_type     _fd{invalid_file};
 };
 
 _SYS_IO_END_NS

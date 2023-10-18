@@ -18,7 +18,13 @@
 
 #define SYS_INLINE          inline __attribute__((always_inline))
 
-// __extension__ : Disables pedantic warnings (-Wpedantic)
+/** @brief (GCC) Disable pedantic warning
+ *
+ * The `-pedantic' and other options can cause warnings for many GNU C
+ * extensions. You can suppress such warnings using the keyword
+ * __extension__. Specifically: Writing __extension__ before an expression
+ * prevents "-pedantic" warnings about extensions within that expression.
+*/
 #define SYS_INHIBIT_PEDANTIC_WARNING    __extension__
 
 _SYS_BEGIN_NS
@@ -34,13 +40,17 @@ using ssize_t = long int;
 /// The result of subtracting two poiners
 using ptrdiff_t = __PTRDIFF_TYPE__;
 
+namespace nonpublic {
 /// Size of a native mutex object
-inline constexpr size_t __sizeof_native_mutex = __SIZEOF_PTHREAD_MUTEX_T;
+inline constexpr size_t sizeof_native_mutex = __SIZEOF_PTHREAD_MUTEX_T;
+}
 
 /// Type of a native file/device
-using __file_type = int;
+using native_file_type = int;
+namespace nonpublic {
 /// Value of an invalid native file
-inline constexpr __file_type __invalid_file = -1;
+inline constexpr native_file_type invalid_native_file = -1;
+}
 
 /// Returns true only when called during constant evaluation
 constexpr inline bool is_constant_evaluated() noexcept

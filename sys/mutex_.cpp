@@ -7,22 +7,20 @@
  *
  */
 #include <mutex_.h>
-#include <pthread.h>
+#include <bit_.h>
 
+#include <pthread.h>
 #include <stdio.h>
 
 _SYS_BEGIN_NS
-
-/// Static initializer for a standard mutex
-const char mutex::static_initializer[__sizeof_native_mutex] = {0};
 
 class mutex_native_handle
 {
     sys::mutex& _mux;
 public:
-    mutex_native_handle(sys::mutex& m) : _mux(m) {}
-    operator pthread_mutex_t*() noexcept
-        { return reinterpret_cast<pthread_mutex_t*>(&_mux._impl[0]); }
+    constexpr mutex_native_handle(sys::mutex& m) : _mux(m) {}
+    constexpr operator pthread_mutex_t*() noexcept
+        { return sys::bit_cast<pthread_mutex_t*>(_mux._impl.data()); }
 };
 
 mutex::~mutex() noexcept
