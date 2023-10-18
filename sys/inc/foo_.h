@@ -10,6 +10,7 @@
 #define sys_foo__included
 
 #include <initializer_list_.h>
+#include <print_.h>
 
 _SYS_BEGIN_NS
 
@@ -17,27 +18,27 @@ static bool foo_noisy = false;
 class Foo {
 public:
 
-    Foo() { if (foo_noisy) sys::io::stout->out("Foo\n"); }
-    Foo(int a, char c, double d) : _a(a) { if (foo_noisy) sys::io::stout->out("Foo(int,char,double)\n");}
-    explicit Foo(int a) : _a(a) { if (foo_noisy) sys::io::stout->out("Foo(int)\n");}
+    Foo() { if (foo_noisy) sys::println("Foo"); }
+    Foo(int a, char c, double d) : _a(a) { if (foo_noisy) sys::println("Foo(int,char,double)");}
+    explicit Foo(int a) : _a(a) { if (foo_noisy) sys::println("Foo(int)");}
 
     Foo(sys::initializer_list<int> il)
-        { if (foo_noisy) sys::io::stout->out("Foo({...})\n");}
+        { if (foo_noisy) sys::println("Foo({...})");}
     Foo(sys::initializer_list<int> il, double d)
-        { if (foo_noisy) sys::io::stout->out("Foo({...},d)\n");}
+        { if (foo_noisy) sys::println("Foo({...},d)");}
 
-    Foo(const Foo& other)     : _a(other._a) { if (foo_noisy) sys::io::stout->out("Foo copy constructor\n"); }
-    Foo(Foo&& other) noexcept : _a(other._a) { if (foo_noisy) sys::io::stout->out("Foo move constructor\n"); }
-    ~Foo()                    { if (foo_noisy) sys::io::stout->out("~Foo\n"); }
+    Foo(const Foo& other)     : _a(other._a) { if (foo_noisy) sys::println("Foo copy constructor"); }
+    Foo(Foo&& other) noexcept : _a(other._a) { if (foo_noisy) sys::println("Foo move constructor"); }
+    ~Foo()                    { if (foo_noisy) sys::println("~Foo"); }
     Foo& operator=(const Foo& other)
     {
-        if (foo_noisy) sys::io::stout->out("Foo copy assignment\n");
+        if (foo_noisy) sys::println("Foo copy assignment");
         _a = other._a;
         return *this;
     }
     Foo& operator=(Foo&& other) noexcept
     {
-        if (foo_noisy) sys::io::stout->out("Foo move assignment\n");
+        if (foo_noisy) sys::println("Foo move assignment");
         _a = other._a;
         return *this;
     }
@@ -57,4 +58,4 @@ public:
 
 _SYS_END_NS
 
-#endif // ifndef sys_MOOMOO__included
+#endif // ifndef sys_foo__included
