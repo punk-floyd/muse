@@ -11,6 +11,7 @@
 
 #include <_core_.h>
 #include "imp/vector_buf.h"
+#include <initializer_list_.h>
 #include <type_traits_.h>
 #include <iterator_.h>
 #include <limits_.h>
@@ -41,10 +42,40 @@ public:
     /// Construct an empty vector
     constexpr vector() noexcept = default;
 
-    /// Construct a vector with initial capacity \p cap
-    explicit vector(size_type cap)
-        : _buf(cap)
-    {}
+    /// Construct a vector with count default-inserted elements
+    constexpr explicit vector(size_type count)
+        : _buf(count)
+    {
+        if constexpr (!is_trivially_constructible_v<value_type>) {
+            auto src = data();
+            for (size_type i = 0; i<count; ++i) {
+                construct_at(src++);
+                _buf.inc_size();
+            }
+        }
+    }
+
+    /// Construct a vector with count copies of given value
+    constexpr vector(size_type count, const value_type& val)
+        requires is_copy_constructible_v<value_type>
+        : _buf(count)
+    {
+        auto src = data();
+        for (size_type i = 0; i<count; ++i) {
+            construct_at(src++, val);
+            _buf.inc_size();
+        }
+    }
+
+    // MDTODO : vector from InputIterator
+
+    /// Construct a vector from an initializer list
+    constexpr vector(sys::initializer_list<value_type> init)
+        : _buf(init.size())
+    {
+        for (auto v : init)
+            push_back(v);
+    }
 
     // -- Element access
 
