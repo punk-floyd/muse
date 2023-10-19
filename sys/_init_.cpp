@@ -11,6 +11,9 @@
 #include <mutex_.h>
 #include <io_ofstream_.h>
 
+#include <foo_.h>
+bool sys::Foo::enable_output = false;
+
 using namespace sys;
 
 //unique_ptr<io::istream> io::stin;

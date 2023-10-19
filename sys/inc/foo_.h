@@ -14,43 +14,55 @@
 
 _SYS_BEGIN_NS
 
-static bool foo_noisy = false;
 class Foo {
 public:
 
-    Foo() { if (foo_noisy) sys::println("Foo"); }
-    Foo(int a, char c, double d) : _a(a) { if (foo_noisy) sys::println("Foo(int,char,double)");}
-    explicit Foo(int a) : _a(a) { if (foo_noisy) sys::println("Foo(int)");}
+    // If this is true then special functions emit to standard output
+    static bool enable_output; // == false by default
+
+    Foo()                                           { emit("Foo()"); }
+    Foo(int a, char c, double d) : _a(a)            { emit("Foo(int,char,double)");}
+    explicit Foo(int a) : _a(a)                     { emit("Foo(int)");}
 
     Foo(sys::initializer_list<int> il)
-        { if (foo_noisy) sys::println("Foo({...})");}
+    {
+        emit("Foo({{...}})");
+        for (auto v : il) _a = v;
+    }
     Foo(sys::initializer_list<int> il, double d)
-        { if (foo_noisy) sys::println("Foo({...},d)");}
+    {
+        emit("Foo({{...}},d)");
+        for (auto v : il) _a = v;
+    }
 
-    Foo(const Foo& other)     : _a(other._a) { if (foo_noisy) sys::println("Foo copy constructor"); }
-    Foo(Foo&& other) noexcept : _a(other._a) { if (foo_noisy) sys::println("Foo move constructor"); }
-    ~Foo()                    { if (foo_noisy) sys::println("~Foo"); }
+    Foo(const Foo& other)     : _a(other._a)        { emit("Foo(const Foo&)"); }
+    Foo(Foo&& other) noexcept : _a(other._a)        { emit("Foo(Foo&&)"); }
+    ~Foo()                                          { emit("~Foo"); }
     Foo& operator=(const Foo& other)
     {
-        if (foo_noisy) sys::println("Foo copy assignment");
+        emit("Foo& operator=(const Foo&)");
         _a = other._a;
         return *this;
     }
     Foo& operator=(Foo&& other) noexcept
     {
-        if (foo_noisy) sys::println("Foo move assignment");
+        emit("Foo& operator=(Foo&&)");
         _a = other._a;
         return *this;
     }
 
-    auto operator<=>(const Foo& other) const
-    {
-        return _a <=> other._a;
-    }
+    auto operator<=>(const Foo& other) const = default;
+    bool operator==(const Foo& other) const = default;
 
-    bool operator==(const Foo& other) const
+    int get_a() const noexcept { return _a; }
+
+private:
+
+    template <class... Args>
+    void emit(sys::format_string<Args...> fmt, Args&&... args)
     {
-        return _a == other._a;
+        if (enable_output)
+            sys::println(fmt, sys::forward<Args>(args)...);
     }
 
     int _a{0};
