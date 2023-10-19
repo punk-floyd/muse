@@ -243,7 +243,17 @@ constexpr void format_parse(string_view fmt, parse_context<OutputIt>& pctx)
 
         // Consume all chars up to the replacement field
         auto out = pctx.get_output_iterator();
-        for (auto i = fmt.begin(); i != p; *out = *i++);
+        string_view::char_t last_char{};
+        for (auto i = fmt.begin(); i != p; ++i) {
+            // Ignore escaped curly braces
+            if (((*i == '{') && (last_char == '{')) ||
+                ((*i == '}') && (last_char == '}'))) {
+                    last_char = {};
+                    continue;
+            }
+            *out = *i;
+            last_char = *i;
+        }
 
         // If we don't have a replacement field then we're done
         if (p == fmt.end())
