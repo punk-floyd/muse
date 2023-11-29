@@ -15,7 +15,7 @@ else()
         -Wconversion -Wsign-conversion -Wnon-virtual-dtor
     )
     set(CMAKE_CXX_FLAGS_RELEASE -O3)
-    set(CMAKE_CXX_FLAGS_DEBUG   -Og)
+    #set(CMAKE_CXX_FLAGS_DEBUG   -O0)
 endif()
 
 # Only do these if this is the main project, and not if it is included through add_subdirectory

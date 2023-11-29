@@ -87,6 +87,9 @@ public:
     /// Returns the number of characters
     constexpr size_type length() const noexcept
         { return _len; }
+    /// Returns the number of characters
+    constexpr size_type size() const noexcept
+        { return _len; }
 
     /// Returns true if our string view is not empty
     constexpr explicit operator bool() const noexcept
@@ -180,9 +183,9 @@ public:
 
     // -- Iterators
 
-    constexpr iterator_type begin() noexcept
+    constexpr iterator_type begin() const noexcept
         { return iterator_type(data()); }
-    constexpr iterator_type end() noexcept
+    constexpr iterator_type end() const noexcept
         { return iterator_type(data() + length()); }
 
     constexpr iterator_type cbegin() const noexcept

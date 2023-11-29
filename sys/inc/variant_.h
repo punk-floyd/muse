@@ -237,8 +237,8 @@ public:
     template <class T>
         requires (!tl::contains<my_types, remove_cvref_t<T>>
             && !is_same_v<remove_cvref_t<T>, variant<Types...>>
-            && !is_specialization_size_t<remove_cvref_t<T>, in_place_index_t>::value
-            && !is_specialization       <remove_cvref_t<T>, in_place_type_t>::value
+            && !is_specialization_size_t_v<remove_cvref_t<T>, in_place_index_t>
+            && !is_specialization_v       <remove_cvref_t<T>, in_place_type_t>
             && (1 == (0 + ... + (imp::is_var_convertible<Types, T> ? 1 : 0)))
         )
     constexpr variant(T&& t)
@@ -331,6 +331,24 @@ public:
     {
         constexpr auto Idx = tl::find_first<my_types, T>;
         return (get_index() == Idx) ? &get_alt<Idx>(_val) : nullptr;
+    }
+
+    template <size_t Idx = 0, class Visitor>
+    constexpr decltype(auto) impl_visit(Visitor&& vis)
+    {
+        if (get_index() == Idx)
+            return sys::invoke(forward<Visitor>(vis), get_alt<Idx>(_val));
+
+        else if constexpr (Idx + 1 < tl::size<my_types>)
+            return impl_visit<Idx + 1, Visitor>(forward<Visitor>(vis));
+        else
+            throw error_variant_access{};
+    }
+
+    template <class Visitor>
+    constexpr decltype(auto) visit(Visitor&& vis)
+    {
+        return impl_visit(forward<Visitor>(vis));
     }
 
     // -- Assignment

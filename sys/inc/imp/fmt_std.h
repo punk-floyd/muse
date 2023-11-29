@@ -6,19 +6,16 @@
  * @copyright Copyright (c) 2023
  *
  */
-#ifndef sys_imp_fmt_formatter_included
-#define sys_imp_fmt_formatter_included
+#pragma once
 
 #include <_core_.h>
 #include <charconv_.h>
 #include <limits_.h>
-#include "fmt_base.h"
-#include "fmt_parse.h"
-#include "fmt_args.h"
+#include "fmt_core.h"
 
 _SYS_BEGIN_NS
 
-struct formatter_std : public formatter_base
+struct formatter_std
 {
     using char_t = char;
 
@@ -26,227 +23,289 @@ struct formatter_std : public formatter_base
 
 protected:
 
-    /// Returns true if format supports sign {:[+- ]}
-    constexpr virtual bool supports_sign() const noexcept
-        { return false; }
-    /// Returns true if format supports alternate form {:#}
-    constexpr virtual bool supports_alt_form() const noexcept
-        { return false; }
-    /// Returns true if format supports leading zeroes {:0}
-    constexpr virtual bool supports_leading_zeroes() const noexcept
-        { return false; }
-    /// Returns true if format supports precision {:.foo}
-    constexpr virtual bool supports_precision() const noexcept
-        { return false; }
+    /// True if format supports sign {:[+- ]}
+    bool    supports_sign{false};
+    /// True if format supports alternate form {:#}
+    bool    supports_alt_form{false};
+    /// True if format supports leading zeroes {:0}
+    bool    supports_leading_zeroes{false};
+    /// True if format supports precision {:.foo}
+    bool    supports_precision{false};
 
-    constexpr void parse(string_view rf, parse_context_base& pctx) override
+    template <class ParseCtx>
+    constexpr bool check_done(ParseCtx& p_ctx)
+    {
+        if (p_ctx.is_empty())
+            throw error_format("Unterminated replacement field");
+
+        if (*p_ctx.begin() == '}') {
+            p_ctx.advance_by(1);
+            return true;
+        }
+
+        return false;
+    }
+
+    template <class ParseCtx>
+    constexpr bool advance_and_check_done(ParseCtx& p_ctx, size_t advance = 1)
+    {
+        p_ctx.advance_by(advance);
+        return check_done(p_ctx);
+    }
+
+    template <class ParseCtx>
+    constexpr bool parse_align_fill(ParseCtx& p_ctx)
+    {
+        // [[fill]align] | fill: [^{}] | align: [<>^]
+
+        // [align]
+        auto it = p_ctx.begin();
+        const auto& ac = format_spec_t::align_chars;
+        if (ac.find_first_of(*it) != string_view::npos) {
+            get_format_spec().align = *it;
+            return advance_and_check_done(p_ctx);
+        }
+
+        // [fill[align]]
+        const auto fill = *it++;
+        if ((it != p_ctx.end()) && (ac.find_first_of(*it) != string_view::npos)) {
+            if ((fill == '{') || (fill == '}'))
+                throw error_format("Invalid fill char");
+            get_format_spec().fill  = fill;
+            get_format_spec().align = *it;
+            return advance_and_check_done(p_ctx, 2);
+        }
+
+        return false;
+    }
+
+    template <class ParseCtx>
+    constexpr bool parse_sign(ParseCtx& p_ctx)
+    {
+        // [sign] | sign: [+- ]
+        const auto it = p_ctx.begin();
+        if (format_spec_t::sign_chars.find_first_of(*it) != string_view::npos) {
+            if (!supports_sign)
+                throw error_format("Sign {:[+- ]} not supported for this type");
+            get_format_spec().sign = *it;
+            return advance_and_check_done(p_ctx);
+        }
+
+        return false;
+    }
+
+    template <class ParseCtx>
+    constexpr bool parse_alt_form(ParseCtx& p_ctx)
+    {
+        // [#] alternate form
+        const auto it = p_ctx.begin();
+        if (*it == format_spec_t::alt_form_char) {
+            if (!supports_alt_form)
+                throw error_format("Alternate form {:#} not supported for this type");
+            get_format_spec().alt_form = true;
+            return advance_and_check_done(p_ctx);
+        }
+
+        return false;
+    }
+
+    template <class ParseCtx>
+    constexpr bool parse_leading_zeroes(ParseCtx& p_ctx)
+    {
+        // [0] leading zeros
+        const auto it = p_ctx.begin();
+        if (*it == format_spec_t::zero_pad_char) {
+            if (!supports_leading_zeroes)
+                throw error_format("Leading zeroes {:0} not supported for this type");
+            get_format_spec().zero_pad = true;
+            return advance_and_check_done(p_ctx);
+        }
+
+        return false;
+    }
+
+    template <class ParseCtx>
+    constexpr bool parse_width(ParseCtx& p_ctx)
     {
         using ch_traits = string_view::traits_t;
 
-        constexpr auto npos = string_view::npos;
-
-        if (rf.is_empty())
-            return;     // Use defaults
-
         auto& fs = get_format_spec();
 
-        // [[fill]align] | fill: [^{}] | align: [<>^]
-        const auto& ac = format_spec_t::align_chars;
-         if (ac.find_first_of(rf[0]) != npos)
-            fs.align = rf.pop_front();  // [align]
-        else if ((rf.length() > 1) && (ac.find_first_of(rf[1]) != npos)) {
-            // [fill[align]]
-            if ((rf[0] == '{') || (rf[0] == '}'))
-                throw error_format("Invalid fill char");
-            fs.fill  = rf.pop_front();
-            fs.align = rf.pop_front();
-        }
-        if (rf.is_empty())
-            return;
-
-        // [sign] | sign: [+- ]
-        const auto& sc = format_spec_t::sign_chars;
-        if (sc.find_first_of(rf[0]) != npos) {
-            if (!supports_sign())
-                throw error_format("Sign {:[+- ]} not supported for this type");
-            fs.sign = rf.pop_front();
-            if (rf.is_empty())
-                return;
-        }
-
-        // [#] alternate form
-        if (rf[0] == format_spec_t::alt_form_char) {
-            if (!supports_alt_form())
-                throw error_format("Alternate form {:#} not supported for this type");
-            fs.alt_form = true;
-            if (rf.remove_prefix(1).is_empty())
-                return;
-        }
-
-        // [0] leading zeros
-        if (rf[0] == format_spec_t::zero_pad_char) {
-            if (!supports_leading_zeroes())
-                throw error_format("Leading zeroes {:0} not supported for this type");
-            fs.zero_pad = true;
-            if (rf.remove_prefix(1).is_empty())
-                return;
-        }
-
         // [width] | positive-decimal or nested rf ({} or {n})
-        if (ch_traits::is_digit_dec(rf[0])) {       // Explicit?
-            auto&& [pos, ec] = from_chars(fs.width, rf);
+        auto it = p_ctx.begin();
+        if (ch_traits::is_digit_dec(*it)) {       // Explicit?
+            auto [pos, ec] = from_chars(fs.width, p_ctx.get_fmt_str());
             if (is_error(ec) || (fs.width < 1))
                 throw error_format("Invalid width specification");
-            if (rf.remove_prefix(pos).is_empty())
-                return;
+            return advance_and_check_done(p_ctx, pos);
         }
-        else if (rf[0] == '{') {                    // In nested rf?
+
+        if (*it == '{') {                    // In nested rf?
 
             fs.width_in_arg = true;
 
             // Eat the '{'
-            if (rf.remove_prefix(1).is_empty())
+            p_ctx.advance_by(1);
+            if (++it == p_ctx.end())
                 throw error_format("Incomplete width nested replacement field");
 
-            // Check for argument index.
-            if (ch_traits::is_digit_dec(rf.front())) {
-                auto&& [pos, ec] = from_chars(fs.width, rf);
+            // Check for argument index
+            if (ch_traits::is_digit_dec(*it)) {
+                auto [pos, ec] = from_chars(fs.width, p_ctx.get_fmt_str());
                 if (is_error(ec))
                     throw error_format("Invalid width value argument index");
-                rf.remove_prefix(pos);
+                p_ctx.advance_by(pos);
 
-                // Mode has already been set, but this will throw if invalid
-                pctx.set_argid_mode(parse_context_base::argid_mode_t::Manual);
+                // Validate the argument index
+                p_ctx.check_arg_index(fs.width);
             }
             else {
                 // Consume the next argument index
-                fs.width = pctx.get_next_auto_arg_idx();
+                fs.width = p_ctx.next_arg_index();
             }
-
-            // Make sure the argument is appropriately typed (int or unsigned)
-            auto& args = pctx.get_format_args();
-            if (fs.width >= args.get_arg_count())
-                throw error_format("Invalid width argument index");
-            auto varg = args.get_arg(fs.width).get_variant();
-            if (!varg.holds_alternative<int>() && !varg.holds_alternative<unsigned>())
-                throw error_format("Invalid type for width argument index; must be int or unsigned int");
 
             // Eat the '}'
-            if (rf.is_empty() || rf.front() != '}')
+            it = p_ctx.begin();
+            if ((it == p_ctx.end()) || (*it != '}'))
                 throw error_format("Incomplete width nested replacement field");
-            if (rf.remove_prefix(1).is_empty())
-                return;
+            return advance_and_check_done(p_ctx);
         }
 
-        // [precision]
-        if (rf[0] == '.') {
-
-            if (!supports_precision())
-                throw error_format("Precision not supported for this type");
-
-            fs.have_precision = true;
-
-            rf.remove_prefix(1);
-
-            if (ch_traits::is_digit_dec(rf[0])) {       // Explicit?
-                auto&& [pos, ec] = from_chars(fs.precision, rf);
-                if (is_error(ec) || (fs.precision < 0))
-                    throw error_format("Invalid precision specification");
-                if (rf.remove_prefix(pos).is_empty())
-                    return;
-            }
-            else if (rf[0] == '{') {                    // In nested rf?
-
-                fs.prec_in_arg = true;
-
-                // Eat the '{'
-                if (rf.remove_prefix(1).is_empty())
-                    throw error_format("Incomplete precision nested replacement field");
-
-                // Check for argument index
-                if (ch_traits::is_digit_dec(rf.front())) {
-                    auto&& [pos, ec] = from_chars(fs.precision, rf);
-                    if (is_error(ec))
-                        throw error_format("Invalid precision value argument index");
-                    rf.remove_prefix(pos);
-
-                    // Mode has already been set, but this will throw if invalid
-                    pctx.set_argid_mode(parse_context_base::argid_mode_t::Manual);
-                }
-                else {
-                    // Consume the next argument index
-                    fs.precision = pctx.get_next_auto_arg_idx();
-                }
-
-                // Make sure the argument is appropriately typed (int or unsigned)
-                auto& args = pctx.get_format_args();
-                if (fs.precision >= args.get_arg_count())
-                    throw error_format("Invalid precision argument index");
-                const auto& varg = args.get_arg(fs.precision).get_variant();
-                if (!varg.holds_alternative<int>() && !varg.holds_alternative<unsigned>())
-                    throw error_format("Invalid type for precision argument index; must be int or unsigned int");
-
-                // Eat the '}'
-                if (rf.is_empty() || rf.front() != '}')
-                    throw error_format("Incomplete precision nested replacement field");
-                if (rf.remove_prefix(1).is_empty())
-                    return;
-            }
-            else
-                throw error_format("Invalid precision specification");
-        }
-
-        // [L] locale-specific formatting
-        if (rf[0] == format_spec_t::use_locale_char) {
-            fs.use_locale = true;
-            if (rf.remove_prefix(1).is_empty())
-                return;
-        }
-
-        // [type] | type: [aAbBcdeEfFgGopsxX] or subset thereof
-        if (fs.type_chars.find_first_of(rf[0]) != npos) {
-            fs.type = rf.pop_front();
-            if (rf.is_empty())
-                return;
-        }
-
-        // Anything remaining is a format error
-        throw error_format("Unprocessed trailing characters in replacement field.");
+        return false;
     }
 
-    // Pull width from a format argument
-    static size_t get_width_from_arg(size_t arg_idx, format_context& fmt_ctx)
+    template <class ParseCtx>
+    constexpr bool parse_precision(ParseCtx& p_ctx)
     {
-        const auto& args = fmt_ctx.get_format_args();
-        if (arg_idx >= args.get_arg_count())
-            throw error_format("Invalid width argument index");
-        auto varg = args.get_arg(arg_idx).get_variant();
-        if (varg.holds_alternative<unsigned>())
-            return varg.get<unsigned>();
-        if (varg.holds_alternative<int>()) {
-            int iwidth = varg.get<int>();
-            if (iwidth < 0)
+        auto& fs = get_format_spec();
+
+        // [precision]
+        auto it = p_ctx.begin();
+        if (*it != '.')
+            return false;
+
+        if (!supports_precision)
+            throw error_format("Precision not supported for this type");
+
+        fs.have_precision = true;
+
+        if (advance_and_check_done(p_ctx))
+            throw error_format("Invalid precision specification");
+
+        if (string_view::traits_t::is_digit_dec(*it)) {       // Explicit?
+            auto [pos, ec] = from_chars(fs.precision, p_ctx.get_fmt_str());
+            if (is_error(ec) || (fs.precision < 0))
+                throw error_format("Invalid precision specification");
+            return advance_and_check_done(p_ctx, pos);
+        }
+
+        if (*it == '{') {                    // In nested rf?
+
+            fs.prec_in_arg = true;
+
+            // Eat the '{'
+            p_ctx.advance_by(1);
+            if (++it == p_ctx.end())
+                throw error_format("Incomplete precision nested replacement field");
+
+            // Check for argument index
+            if (string_view::traits_t::is_digit_dec(*it)) {
+                auto [pos, ec] = from_chars(fs.precision, p_ctx.get_fmt_str());
+                if (is_error(ec))
+                    throw error_format("Invalid precision value argument index");
+                p_ctx.advance_by(pos);
+
+                // Validate the argument index
+                p_ctx.check_arg_index(fs.precision);
+            }
+            else {
+                // Consume the next argument index
+                fs.precision = p_ctx.next_arg_index();
+            }
+
+            // Eat the '}'
+            it = p_ctx.begin();
+            if ((it == p_ctx.end()) || (*it != '}'))
+                throw error_format("Incomplete precision nested replacement field");
+            return advance_and_check_done(p_ctx);
+        }
+
+        throw error_format("Invalid precision specification");
+    }
+
+    template <class ParseCtx>
+    constexpr bool parse_locale_specific(ParseCtx& p_ctx)
+    {
+        // [L] locale-specific formatting
+        if (*p_ctx.begin() == format_spec_t::use_locale_char) {
+            get_format_spec().use_locale = true;
+            return advance_and_check_done(p_ctx);
+        }
+
+        return false;
+    }
+
+    template <class ParseCtx>
+    constexpr bool parse_type(ParseCtx& p_ctx)
+    {
+        // [type] | type: [aAbBcdeEfFgGopsxX] or subset thereof
+        auto it = p_ctx.begin();
+        if (get_format_spec().type_chars.find_first_of(*it) != string_view::npos) {
+            get_format_spec().type = *it;
+            return advance_and_check_done(p_ctx);
+        }
+
+        return false;
+    }
+
+    template <class ParseCtx>
+    constexpr void parse_std(ParseCtx& p_ctx)
+    {
+        if (check_done(p_ctx))              return;
+        if (parse_align_fill(p_ctx))        return;
+        if (parse_sign(p_ctx))              return;
+        if (parse_alt_form(p_ctx))          return;
+        if (parse_leading_zeroes(p_ctx))    return;
+        if (parse_width(p_ctx))             return;
+        if (parse_precision(p_ctx))         return;
+        if (parse_locale_specific(p_ctx))   return;
+        if (parse_type(p_ctx))              return;
+
+        // Anything remaining is a format error
+        if (!check_done(p_ctx))
+            throw error_format("Missing terminal replacement field terminator");
+    }
+
+
+    // Pull width from a format argument
+    template <class FormatCtx>
+    size_t get_width_from_arg(size_t arg_idx, FormatCtx& f_ctx)
+    {
+        const auto varg = f_ctx.get_arg(arg_idx);
+        if (varg.template holds_alternative<unsigned>())
+            return varg.template get<unsigned>();
+        if (varg.template holds_alternative<int>()) {
+            int width = varg.template get<int>();
+            if (width < 0)
                 throw error_format("Invalid width argument value; must be non-negative");
-            return static_cast<size_t>(iwidth);
+            return static_cast<size_t>(width);
         }
 
         throw error_format("Invalid type for width argument index; must be int or unsigned int");
     }
 
     // Pull precision from a format argument
-    static size_t get_precision_from_arg(size_t arg_idx, format_context& fmt_ctx)
+    template <class FormatCtx>
+    static size_t get_precision_from_arg(size_t arg_idx, FormatCtx& f_ctx)
     {
-        const auto& args = fmt_ctx.get_format_args();
-        if (arg_idx >= args.get_arg_count())
-            throw error_format("Invalid precision argument index");
-        auto varg = args.get_arg(arg_idx).get_variant();
-        if (varg.holds_alternative<unsigned>())
-            return varg.get<unsigned>();
-        if (varg.holds_alternative<int>()) {
-            int iprec = varg.get<int>();
-            if (iprec < 0)
+        auto varg = f_ctx.get_arg(arg_idx);
+        if (varg.template holds_alternative<unsigned>())
+            return varg.template get<unsigned>();
+        if (varg.template holds_alternative<int>()) {
+            int precision = varg.template get<int>();
+            if (precision < 0)
                 throw error_format("Invalid precision argument value; must be non-negative");
-            return static_cast<size_t>(iprec);
+            return static_cast<size_t>(precision);
         }
 
         throw error_format("Invalid type for precision argument index; must be int or unsigned int");
@@ -288,14 +347,13 @@ protected:
     constexpr const format_spec_t& get_format_spec() const noexcept { return _spec; }
     constexpr       format_spec_t& get_format_spec()       noexcept { return _spec; }
 
+    constexpr formatter_std(const format_spec_t& spec) noexcept
+        : _spec(spec)
+    {}
+
 private:
 
     format_spec_t   _spec{};
 };
 
 _SYS_END_NS
-
-#include "fmt_std_int.h"
-#include "fmt_std_str.h"
-
-#endif // ifndef sys_imp_fmt_formatter_included

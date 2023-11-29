@@ -6,20 +6,16 @@
  * @copyright Copyright (c) 2023
  *
  */
-#ifndef sys_imp_fmt_std_str_included
-#define sys_imp_fmt_std_str_included
+#pragma once
 
-#include <_core_.h>
 #include <string_view_.h>
-#include <imp/fmt_std.h>
+#include "fmt_std.h"
 
 _SYS_BEGIN_NS
 
 template<string_view_convertible T>
 struct formatter<T> : formatter_std
 {
-    using my_base = formatter_std;
-
     // Note: Ultimately, UTF-8 will be the assumed encoding here. As of now,
     //       we're assuming plain old ASCII.
 
@@ -27,28 +23,48 @@ struct formatter<T> : formatter_std
     {
         get_format_spec().type_chars = "s?";
         get_format_spec().type       = 's';
+
+        supports_precision = true;
     }
 
-    constexpr virtual bool supports_precision() const noexcept
-        { return true; }
-
-    void sink_escaped_output(string_view val, formatter_sink& sink) const
+    template <class ParseCtx>
+    constexpr auto parse(ParseCtx& p_ctx) -> ParseCtx::iterator
     {
-        sink.output('"');
+        parse_std(p_ctx);
+        return p_ctx.begin();
+    }
+
+    template <class OutputIt>
+    constexpr OutputIt sink_string(OutputIt it, string_view sv) const
+    {
+        for (const auto c : sv)
+            *it++ = c;
+
+        return it;
+    }
+
+    template <class OutputIt>
+    constexpr OutputIt sink_escaped_output(OutputIt it, string_view sv) const
+    {
+        OutputIt it_out = move(it);
+
+        *it_out++ = '"';
 
         // TEMP: For now. Assuming ASCII encoding here.
-        for (const auto& c : val) {
+        for (const auto c : sv) {
             switch(c) {
-                case '\t': sink.output("\\t");  break;
-                case '\n': sink.output("\\n");  break;
-                case '\r': sink.output("\\r");  break;
-                case '"' : sink.output("\\\""); break;
-                case '\\': sink.output("\\\\"); break;
-                default:   sink.output(c);      break;
+                case '\t': it = sink_string(move(it), "\\t");  break;
+                case '\n': it = sink_string(move(it), "\\n");  break;
+                case '\r': it = sink_string(move(it), "\\r");  break;
+                case '"' : it = sink_string(move(it), "\\\""); break;
+                case '\\': it = sink_string(move(it), "\\\\"); break;
+                default:   *it_out++ = c;                      break;
             }
         }
 
-        sink.output('"');
+        *it_out++ = '"';
+
+        return it_out;
     }
 
     size_t get_escaped_output_length(string_view sv) const
@@ -58,23 +74,14 @@ struct formatter<T> : formatter_std
         // the width.
 
         count_insert_iterator<string_view::char_t> counter;
-        imp::format_sink_imp sink(counter);
-
-        sink_escaped_output(sv, sink);
-        return counter.get_count();
+        return sink_escaped_output(move(counter), sv).get_count();
     }
 
-    /// Format output into given sink
-    void format(const format_arg& fmt_arg, format_context& fmt_ctx) override
+    template <class FormatCtx>
+    constexpr auto format(T val_raw, FormatCtx& fmt_ctx) -> FormatCtx::iterator
     {
         // The format argument value
-        sys::string_view val;
-        // TODO : Clean this up. We know that T is convertible to string_view.
-        if constexpr (is_same_v<remove_cvref_t<T>, sys::string_view> ||
-                      is_same_v<remove_cvref_t<T>, string>)
-            val = fmt_arg.get_variant().get<sys::string_view>();
-        else
-            val = fmt_arg.get_variant().get<const char*>();
+        sys::string_view val{val_raw};
 
         // Resolve output type
         const auto& fs = get_format_spec();
@@ -91,7 +98,7 @@ struct formatter<T> : formatter_std
         size_t precision = fs.have_precision ? fs.prec_in_arg
             ? get_precision_from_arg(fs.precision, fmt_ctx) : fs.precision : 0;
 
-        formatter_sink& sink = fmt_ctx.get_sink();
+        auto it_out = fmt_ctx.out();
 
         // TODO UTF-8 : This will eventually be assuming utf-8 encoding.
         //              For now, it's assuming plain old ASCII.
@@ -100,10 +107,9 @@ struct formatter<T> : formatter_std
         // just dump string and go.
         if (!width && !fs.have_precision) {
             if (escaped_output)
-                sink_escaped_output(val, sink);
+                return sink_escaped_output(fmt_ctx.out(), val);
             else
-                sink.output(val);
-            return;
+                return sink_string(fmt_ctx.out(), val);
         }
 
         // -- ASCII
@@ -131,20 +137,20 @@ struct formatter<T> : formatter_std
 
         // [pre-fill]
         while (pre_fill--)
-            sink.output(fill_char);
+            *it_out++ = fill_char;
 
         // value
         if (escaped_output)
-            sink_escaped_output(val, sink);
+            it_out = sink_escaped_output(move(it_out), val);
         else
-            sink.output(val);
+            it_out = sink_string(move(it_out), val);
 
         // [post-fill]
         while (post_fill--)
-            sink.output(fill_char);
+            *it_out++ = fill_char;
+
+        return it_out;
     }
 };
 
 _SYS_END_NS
-
-#endif // ifndef sys_imp_fmt_std_str_included

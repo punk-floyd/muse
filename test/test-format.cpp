@@ -5,6 +5,53 @@
 
 using namespace sys;
 
+class MyClass
+{
+    int _x{0};
+public:
+    constexpr explicit MyClass(int x) : _x(x) {}
+    constexpr int get() const noexcept { return _x; }
+};
+
+template<> struct sys::formatter<MyClass>
+{
+    bool _not{false};
+public:
+
+    constexpr formatter() = default;
+
+    template <class ParseCtx>
+    constexpr auto parse(ParseCtx& p_ctx) -> ParseCtx::iterator
+    {
+        // Dumb format syntax: {} or {!}
+        auto it = p_ctx.begin();
+        if (*it == '!') {
+            _not = true;
+            it++;
+        }
+
+        if ((it == p_ctx.end()) || (*it != '}'))
+            throw error_format("Bad MyClassFormatter replacement field");
+        it++;
+
+        return it;
+    }
+
+    template <class FormatCtx>
+    constexpr auto format(MyClass val, FormatCtx& f_ctx) -> FormatCtx::iterator
+    {
+        auto it_out = f_ctx.out();
+
+        if (_not) {
+            *it_out++ ='!';
+            f_ctx.advance_to(it_out);
+        }
+
+        sys::formatter<int> f_int;
+        return f_int.format(val.get(), f_ctx);
+    }
+};
+
 class TestFormat : public TestApp
 {
 public:
@@ -126,6 +173,14 @@ public:
         io::stout->out(format(" void*:                  {}\n", static_cast<void*>(nullptr)));
         io::stout->out(format(" nullptr_t:              {}\n", nullptr));
         io::stout->out(format(" class Foo*:             {}\n", &foo));
+
+        // -- Custom formatter ---------------------------------------------
+
+        MyClass cf(1975);
+
+        io::stout->out("\nCustom formatter\n");
+        io::stout->out(format(" MyClass{{}}:              {}\n",   cf));
+        io::stout->out(format(" MyClass{{!}}:             {:!}\n", cf));
     }
 
     bool RunTests() override
@@ -146,4 +201,3 @@ app* CreateApp()
 {
     return new TestFormat();
 }
-

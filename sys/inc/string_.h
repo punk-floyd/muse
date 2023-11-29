@@ -979,6 +979,8 @@ public:
         { return _sbuf.data(); }
     constexpr       char_t* data()       noexcept
         { return _sbuf.data(); }
+    constexpr size_type size()   const noexcept
+        { return _sbuf.length(); }
     constexpr size_type length()   const noexcept
         { return _sbuf.length(); }
     constexpr size_type capacity() const noexcept

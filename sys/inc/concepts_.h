@@ -26,7 +26,7 @@ concept derived_from =
 
 /// Specifies that a type is implicitly convertible to another type
 template <class From, class To>
-concept converible_to =
+concept convertible_to =
     sys::is_convertible_v<From, To> &&
     requires { static_cast<To>(sys::declval<From>()); };
 
@@ -62,14 +62,14 @@ template <class T> concept default_initializible =
 
 /// Specifies that an object of a type can be move constructed
 template <class T> concept move_constructible =
-    sys::constructible_from<T, T> && sys::converible_to<T, T>;
+    sys::constructible_from<T, T> && sys::convertible_to<T, T>;
 
 /// Specifies that an object of a type can be copy constructed and move constructed
 template <class T> concept copy_constructible =
     sys::move_constructible<T> &&
-    sys::constructible_from<T, T&>       && sys::converible_to<T&, T> &&
-    sys::constructible_from<T, const T&> && sys::converible_to<const T&, T> &&
-    sys::constructible_from<T, const T>  && sys::converible_to<const T, T>;
+    sys::constructible_from<T, T&>       && sys::convertible_to<T&, T> &&
+    sys::constructible_from<T, const T&> && sys::convertible_to<const T&, T> &&
+    sys::constructible_from<T, const T>  && sys::convertible_to<const T, T>;
 
 /// True if given parameter pack is not empty
 template <class... Things>
@@ -82,8 +82,8 @@ concept empty_pack = sizeof...(Things) == 0;
 /// Specifies that a type can be used in Boolean contexts
 template <class B>
 concept boolean_testable =
-    converible_to<B, bool> &&
-    requires (B&& b) { { !sys::forward<B>(b) } -> converible_to<bool>; };
+    convertible_to<B, bool> &&
+    requires (B&& b) { { !sys::forward<B>(b) } -> convertible_to<bool>; };
 
 /// Specifies that type T is comparable to type U
 template <class T, class U>

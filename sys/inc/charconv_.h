@@ -43,7 +43,7 @@ constexpr from_chars_result from_chars(T& value, string_view s, unsigned radix =
     if ((radix == 1) || radix > radix_chars.length())
         return result(0, error_code::bad_parameter);
 
-    // Track orignial view so we can return appropriate offset. We use s as
+    // Track original view so we can return appropriate offset. We use s as
     // our working copy and adjust the view as we consume characters.
     string_view s_og{s};
 

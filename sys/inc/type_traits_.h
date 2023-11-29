@@ -562,19 +562,27 @@ namespace imp {
 /// Utility class for using static_assert to flag errors in constexpr code
 template <class T> inline constexpr bool dependent_false_v = imp::dependent_false<T>::value;
 
+namespace imp {
+
+    /// Requires template type; cannot be a template value
+    template <class T, template <class...> class Template>
+    struct is_specialization : false_type {};
+    template <template <class...> class Template, class... Args>
+    struct is_specialization<Template<Args...>, Template> : true_type {};
+
+    template <class T, template <size_t> class Template>
+    struct is_specialization_size_t : false_type {};
+    template <template <size_t> class Template, size_t Arg>
+    struct is_specialization_size_t<Template<Arg>, Template> : true_type {};
+}
+
 /// Checks if a type is a specialization of a given template
-/// Eequires template type; cannot be a template value
 template <class T, template <class...> class Template>
-struct is_specialization : false_type {};
-template <template <class...> class Template, class... Args>
-struct is_specialization<Template<Args...>, Template> : true_type {};
+inline constexpr bool is_specialization_v = imp::is_specialization<T, Template>::value;
 
-// TODO : is_specialization_v
-
+/// Checks if a type is a specialization of a given template based on a size_t
 template <class T, template <size_t> class Template>
-struct is_specialization_size_t : false_type {};
-template <template <size_t> class Template, size_t Arg>
-struct is_specialization_size_t<Template<Arg>, Template> : true_type {};
+inline constexpr bool is_specialization_size_t_v = imp::is_specialization_size_t<T, Template>::value;
 
 template <sys::size_t N>
 struct string_literal

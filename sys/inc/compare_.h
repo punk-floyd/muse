@@ -274,10 +274,10 @@ namespace imp {
         same_as<common_reference_t<const T&, const U&>,
                 common_reference_t<const T&&, const U&&>> &&
         requires {
-            requires converible_to<const T&, const C&> ||
-                     converible_to<T,        const T&>;
-            requires converible_to<const U&, const C&> ||
-                     converible_to<U,        const C&>;
+            requires convertible_to<const T&, const C&> ||
+                     convertible_to<T,        const T&>;
+            requires convertible_to<const U&, const C&> ||
+                     convertible_to<U,        const C&>;
         };
 
     template <class T, class U>

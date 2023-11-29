@@ -171,7 +171,7 @@ struct count_insert_iterator
     constexpr count_insert_iterator& operator=(T&&)      noexcept { _count++; return *this; }
     constexpr count_insert_iterator& operator*()         noexcept { return *this; }
     constexpr count_insert_iterator& operator++()        noexcept { return *this; }
-    constexpr count_insert_iterator  operator++(int)     noexcept { return *this; }
+    constexpr count_insert_iterator& operator++(int)     noexcept { return *this; }
 
     constexpr size_t get_count() const noexcept { return _count; }
 

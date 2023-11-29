@@ -6,10 +6,10 @@
  * @copyright Copyright (c) 2023
  *
  */
-#ifndef sys_imp_fmt_std_int_included
-#define sys_imp_fmt_std_int_included
+#pragma once
 
 #include <bit_.h>
+#include "fmt_std.h"
 
 _SYS_BEGIN_NS
 
@@ -22,47 +22,32 @@ template <class T>
     requires (integral<T> && !is_fmt_char_type<T>::value && !is_same_v<T, bool>)
 struct formatter<T> : public formatter_std
 {
-    using my_base = formatter_std;
-
     constexpr formatter()
     {
         // Tweak defaults for integral types
-        this->get_format_spec().type_chars = "bBcdoxX";
-        this->get_format_spec().type       = 'd';
+        get_format_spec().type_chars = "bBcdoxX";
+        get_format_spec().type       = 'd';
+
+        supports_sign           = true;
+        supports_alt_form       = true;
+        supports_leading_zeroes = true;
     }
 
-    constexpr bool supports_sign() const noexcept override
-        { return true; }
-    constexpr bool supports_alt_form() const noexcept override
-        { return true; }
-    constexpr bool supports_leading_zeroes() const noexcept override
-        { return true; }
+    constexpr formatter(const format_spec_t& spec) noexcept
+        : formatter_std(spec)
+    {}
 
-    static void format_work(const format_spec_t& fs, const format_arg& fmt_arg, format_context& fmt_ctx)
+    template <class ParseCtx>
+    constexpr auto parse(ParseCtx& p_ctx) -> ParseCtx::iterator
     {
-        auto get_val = [](const format_arg& arg){
-            if constexpr (is_unsigned_v<T>) {
-                if      constexpr (sizeof(T) ==  1) return arg.get_variant().get<uint8_t>();
-                else if constexpr (sizeof(T) ==  2) return arg.get_variant().get<uint16_t>();
-                else if constexpr (sizeof(T) ==  4) return arg.get_variant().get<uint32_t>();
-                else if constexpr (sizeof(T) ==  8) return arg.get_variant().get<uint64_t>();
-                else if constexpr (sizeof(T) == 16) return arg.get_variant().get<uint128_t>();
-                else static_assert(dependent_false_v<T>, "Unsigned integral type is too large");
-            }
-            else if constexpr (is_signed_v<T>) {
-                if      constexpr (sizeof(T) ==  1) return arg.get_variant().get<sint8_t>();
-                else if constexpr (sizeof(T) ==  2) return arg.get_variant().get<sint16_t>();
-                else if constexpr (sizeof(T) ==  4) return arg.get_variant().get<sint32_t>();
-                else if constexpr (sizeof(T) ==  8) return arg.get_variant().get<sint64_t>();
-                else if constexpr (sizeof(T) == 16) return arg.get_variant().get<sint128_t>();
-                else static_assert(dependent_false_v<T>, "Signed integral type is too large");
-            }
-            else {
-                static_assert(dependent_false_v<T>);
-            }
-        };
+        parse_std(p_ctx);
+        return p_ctx.begin();
+    }
 
-        auto val = get_val(fmt_arg);
+    template <class FormatCtx>
+    constexpr auto format(T val, FormatCtx& fmt_ctx) -> FormatCtx::iterator
+    {
+        const auto& fs = get_format_spec();
 
         // Resolve field width argument
         size_t width = fs.width_in_arg
@@ -83,42 +68,41 @@ struct formatter<T> : public formatter_std
         default: throw error_format("Bad format type");
         }
 
-        // Declare a char buffer large enough to hold largest possibe
+        // Declare a char buffer large enough to hold largest possible
         // number. This can vary from 1 byte (e.g., base-36 uint8_t) to
         // 128 bytes (e.g., base-2 uint128_t). So, worst case is 1 char
-        // per 1 bit (base 2). Add one more char for potentnial sign.
-        constexpr size_t numbuf_bytes = (sizeof(T) << 3) + 1;
-        char numbuf[numbuf_bytes];
-        string_view numstr{};
+        // per 1 bit (base 2). Add one more char for potential sign.
+        constexpr size_t num_buf_bytes = (sizeof(T) << 3) + 1;
+        char num_buf[num_buf_bytes];
+        string_view num_str{};
 
         if (fs.type == 'c') {
             if (val > numeric_limits<char>::max)
                 throw error_format("Bad parameter for type 'c'");
-            numbuf[0] = static_cast<char>(val);
-            numstr = string_view(numbuf, 1);
+            num_buf[0] = static_cast<char>(val);
+            num_str = string_view(num_buf, 1);
         }
         else {
-            auto&& [endp, ec] = to_chars(numbuf, numbuf + numbuf_bytes, val, base);
+            auto&& [endp, ec] = to_chars(num_buf, num_buf + num_buf_bytes, val, base);
             if (is_error(ec))
                 throw error_format("Failed to convert value"); // Shouldn't happen
-            numstr = string_view(numbuf, endp - numbuf);
+            num_str = string_view(num_buf, endp - num_buf);
         }
 
         bool is_neg = false;
         if constexpr (is_signed_v<T>) {
             is_neg = (val < 0);
             if (is_neg && !no_sign)
-                numstr.remove_prefix(1); // Lop off the sign
+                num_str.remove_prefix(1); // Lop off the sign
         }
-
         // TODO : Not yet handled: fs.use_locale (L) (locale specific digit grouping)
 
-        formatter_sink& sink = fmt_ctx.get_sink();
-
         // Determine length of value including any sign and base prefix
-        size_t fld_len = numstr.length();
+        size_t fld_len = num_str.length();
         if (fs.alt_form)                fld_len += base_prefix.length();
         if ((fs.sign != '-') || is_neg) fld_len += 1;
+
+        auto it_out {fmt_ctx.out()};
 
         // Handle zero padding: [sign] [base-prefix] [0-pad] value
         if (fs.zero_pad && !fs.align) {
@@ -127,21 +111,24 @@ struct formatter<T> : public formatter_std
             // [sign]
             if (!no_sign) {
                 if (is_neg)
-                    sink.output('-');
+                    *it_out++ = '-';
                 else if ((fs.sign == ' ') || (fs.sign == '+'))
-                    sink.output(fs.sign);
+                    *it_out++ = fs.sign;
             }
 
             // [base-prefix]
-            if (fs.alt_form && !base_prefix.is_empty())
-                sink.output(base_prefix);
+            if (fs.alt_form && !base_prefix.is_empty()) {
+                for (auto c: base_prefix)
+                    *it_out++ = c;
+            }
 
             // [0-pad]
             while (zeros--)
-                sink.output('0');
+                *it_out++ = '0';
 
             // value
-            sink.output(numstr);
+            for (auto c : num_str)
+                *it_out++ = c;
         }
         // Handle align/fill: [pre-fill] [sign] [base-prefix] value [post-fill]
         else {
@@ -160,61 +147,64 @@ struct formatter<T> : public formatter_std
 
             // [pre-fill]
             while (pre_fill--)
-                sink.output(fill_char);
+                *it_out++ = fill_char;
 
             // [sign]
             if (!no_sign) {
                 if (is_neg)
-                    sink.output('-');
+                    *it_out++ = '-';
                 else if ((fs.sign == ' ') || (fs.sign == '+'))
-                    sink.output(fs.sign);
+                    *it_out++ = fs.sign;
             }
 
             // [base-prefix]
-            if (fs.alt_form && !base_prefix.is_empty())
-                sink.output(base_prefix);
+            if (fs.alt_form && !base_prefix.is_empty()) {
+                for (auto c : base_prefix)
+                    *it_out++ = c;
+            }
 
             // value
-            sink.output(numstr);
+            for (auto c : num_str)
+                *it_out++ = c;
 
             // [post-fill]
             while (post_fill--)
-                sink.output(fill_char);
+                *it_out++ = fill_char;
         }
-    }
 
-    /// Format output into given sink
-    void format(const format_arg& fmt_arg, format_context& fmt_ctx) override
-    {
-        format_work(this->get_format_spec(), fmt_arg, fmt_ctx);
+        return it_out;
     }
 };
 
 template <>
-struct formatter<bool> final : public formatter_std
+struct formatter<bool> : public formatter_std
 {
-    using my_base = formatter_std;
-
     constexpr formatter()
     {
         // Tweak defaults for integral types
-        this->get_format_spec().type_chars = "bBdosxX";
-        this->get_format_spec().type       = 's';
+        get_format_spec().type_chars = "bBdosxX";
+        get_format_spec().type       = 's';
     }
 
-    /// Format output into given sink
-    void format(const format_arg& fmt_arg, format_context& fmt_ctx) override
+    template <class ParseCtx>
+    constexpr auto parse(ParseCtx& p_ctx) -> ParseCtx::iterator
     {
-        // The format argument value
-        auto val = fmt_arg.get_variant().template get<bool>();
+        parse_std(p_ctx);
+        return p_ctx.begin();
+    }
 
-        if (get_format_spec().type == 's')
-            fmt_ctx.get_sink().output(val ? "true" : "false");
-        else {
-            format_arg uc_arg{static_cast<unsigned char>(val)};
-            const auto& fs = this->get_format_spec();
-            formatter<unsigned char>::format_work(fs, uc_arg, fmt_ctx);
+    template <class FormatCtx>
+    constexpr auto format(bool val, FormatCtx& fmt_ctx) -> FormatCtx::iterator
+    {
+        if (get_format_spec().type == 's') {
+            auto it_out {fmt_ctx.out()};
+            for (auto c : string_view{val ? "true" : "false"})
+                *it_out++ = c;
+            return it_out;
         }
+
+        formatter<unsigned char> f{get_format_spec()};
+        return f.format(static_cast<unsigned char>(val), fmt_ctx);
     }
 };
 
@@ -225,37 +215,37 @@ template <class T>
         (is_pointer_v<T>
             && !is_same_v<remove_cvref_t<T>, const char*>
             && !is_same_v<remove_cvref_t<T>,       char*>)
-struct formatter<T> final : public formatter_std
+struct formatter<T> : public formatter_std
 {
-    using my_base = formatter_std;
-
     constexpr formatter()
     {
         // Tweak defaults for pointer types
-        this->get_format_spec().type_chars = "p";
-        this->get_format_spec().type       = 'p';
+        get_format_spec().type_chars = "p";
+        get_format_spec().type       = 'p';
     }
 
-    /// Format output into given sink
-    constexpr void format(const format_arg& fmt_arg, format_context& fmt_ctx) override
+    template <class ParseCtx>
+    constexpr auto parse(ParseCtx& p_ctx) -> ParseCtx::iterator
     {
-        // TODO : Fix this up when we have "visit" capabilities
-        format_arg up_arg;
-        if constexpr (is_same_v<remove_cvref_t<T>, nullptr_t>)
-            up_arg = format_arg{bit_cast<unsigned long>(fmt_arg.get_variant().get<nullptr_t>())};
-        else
-            up_arg = format_arg{bit_cast<unsigned long>(fmt_arg.get_variant().get<const void*>())};
+        parse_std(p_ctx);
+        return p_ctx.begin();
+    }
 
-        format_spec_t fs{this->get_format_spec()};
+    template <class FormatCtx>
+    constexpr auto format(T val, FormatCtx& fmt_ctx) -> FormatCtx::iterator
+    {
+        const unsigned long val_ul = bit_cast<unsigned long>(val);
+
+        format_spec_t fs{get_format_spec()};
         fs.type = 'x';
         fs.alt_form = true;
         fs.zero_pad = true;
         if (!fs.width_in_arg && !fs.width)
             fs.width = sizeof(uintptr_t) << 1;
-        formatter<unsigned long>::format_work(fs, up_arg, fmt_ctx);
+
+        formatter<unsigned long> f(fs);
+        return f.format(val_ul, fmt_ctx);
     }
 };
 
 _SYS_END_NS
-
-#endif // ifndef sys_imp_fmt_std_int_included

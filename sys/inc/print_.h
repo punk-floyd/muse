@@ -17,7 +17,7 @@ _SYS_BEGIN_NS
 
 /// Prints to standard output using formatted representation of the arguments
 template <class... FmtArgs>
-inline void print(sys::format_string<FmtArgs...> fmt, FmtArgs&&... args)
+inline void print(format_string<FmtArgs...> fmt, FmtArgs&&... args)
 {
     io::ostream_iterator osi(*io::stout.get());
     format_to(osi, fmt, forward<FmtArgs>(args)...);
@@ -25,7 +25,7 @@ inline void print(sys::format_string<FmtArgs...> fmt, FmtArgs&&... args)
 
 /// Prints to standard output using formatted representation of the arguments with a terminal newline
 template <class... FmtArgs>
-inline void println(sys::format_string<FmtArgs...> fmt, FmtArgs&&... args)
+inline void println(format_string<FmtArgs...> fmt, FmtArgs&&... args)
 {
     print(fmt, forward<FmtArgs>(args)...);
     io::stout->out('\n');

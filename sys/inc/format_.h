@@ -6,69 +6,61 @@
  * @copyright Copyright (c) 2022
  *
  */
-#ifndef sys_format__included
-#define sys_format__included
+#pragma once
 
-#include <string_view_.h>
-#include <iterator_.h>
-#include <charconv_.h>
-#include <variant_.h>
-#include <string_.h>
-#include <array_.h>
-
-#include "imp/fmt_base.h"
+#include <_core_.h>
+#include "imp/fmt_core.h"
 #include "imp/fmt_std.h"
-#include "imp/fmt_args.h"
-#include "imp/fmt_parse.h"
+#include "imp/fmt_std_int.h"
+#include "imp/fmt_std_str.h"
 #include "imp/fmt_buf.h"
 
 _SYS_BEGIN_NS
 
-/// Non-template variant of sys::format using type-erased argument representation
-string vformat(string_view fmt, basic_format_args args)
+/// Non-template variant of format using type-erased argument representation
+string vformat(string_view fmt, const format_args& args)
 {
     imp::fmt_buf buf;
-    back_insert_iterator bit(buf);
-
-    imp::parse_context pctx(args, bit);
-    imp::format_parse(fmt, pctx);
+    format_context f_ctx{args, back_insert_iterator(buf)};
+    parse_context  p_ctx{fmt, args.count()};
+    imp::do_format(p_ctx, f_ctx);
     return buf.release_string();
+}
+
+/// Non-template variant of format_to using type-erased argument representation
+template <class OutputIt>
+OutputIt vformat_to(OutputIt out, string_view fmt,
+    const basic_format_args<basic_format_context<OutputIt>>& args)
+{
+    basic_format_context<OutputIt> f_ctx(args, move(out));
+    parse_context p_ctx(fmt, args.count());
+    imp::do_format(p_ctx, f_ctx);
+    return f_ctx.out();
 }
 
 /// Stores formatted representation of the arguments in a new string
 template <class... FmtArgs>
 inline string format(format_string<FmtArgs...> fmt, FmtArgs&&... args)
 {
-    format_arg_store<FmtArgs...> arg_store(forward<FmtArgs>(args)...);
-    return vformat(fmt.get_view(), basic_format_args(arg_store));
+    return vformat(fmt.get_view(), make_format_args(args...));
 }
 
+/// Writes out formatted representation of its arguments through an output iterator
 template <class OutputIt, class... FmtArgs>
-inline OutputIt format_to(OutputIt it, sys::format_string<FmtArgs...> fmt, FmtArgs&&... args)
+OutputIt format_to(OutputIt out, format_string<FmtArgs...> fmt, FmtArgs&&... args)
 {
-    format_arg_store<FmtArgs...> arg_store(forward<FmtArgs>(args)...);
-    basic_format_args fmt_args(arg_store);
-
-    imp::parse_context pctx(fmt_args, it);
-    imp::format_parse(fmt, pctx);
-
-    return it;
+    return vformat_to(move(out), fmt.get_view(),
+        make_format_args<basic_format_context<OutputIt>, FmtArgs...>(args...));
 }
 
 /// Determines the number of characters necessary to store formatted output
 template <class... FmtArgs>
 inline size_t formatted_size(format_string<FmtArgs...> fmt, FmtArgs&&... args)
 {
-    format_arg_store<FmtArgs...> arg_store(forward<FmtArgs>(args)...);
-    basic_format_args fmt_args(arg_store);
+    using OutputIt = count_insert_iterator<char>;
 
-    count_insert_iterator<char> counter;
-    imp::parse_context pctx(fmt_args, counter);
-
-    imp::format_parse(fmt, pctx);
-    return counter.get_count();
+    return vformat_to(OutputIt{}, fmt.get_view(),
+        make_format_args<basic_format_context<OutputIt>, FmtArgs...>(args...)).get_count();
 }
 
 _SYS_END_NS
-
-#endif // ifndef sys_format__included
