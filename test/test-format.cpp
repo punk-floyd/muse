@@ -2,6 +2,7 @@
 #include <string_view_.h>
 #include <string_.h>
 #include <format_.h>
+#include <print_.h>
 
 using namespace sys;
 
@@ -58,16 +59,18 @@ public:
 
     void TestEasySingleConversions()
     {
-        io::stout->out("-- Basic single conversions: Ensuring nothing throws\n");
+        using sys::print_str;
+
+        print_str("-- Basic single conversions: Ensuring nothing throws\n");
         // ...and that everything compiles!
 
         // -- String like things -------------------------------------------
 
 #define STRING_PAYLOAD      "moop"
 
-        io::stout->out("String like things: Expected string payload is '");
-        io::stout->out(STRING_PAYLOAD);
-        io::stout->out("'\n");
+        print_str("String like things: Expected string payload is '");
+        print_str(STRING_PAYLOAD);
+        print_str("'\n");
 
         string_view sv(STRING_PAYLOAD);
         string s(STRING_PAYLOAD);
@@ -75,19 +78,22 @@ public:
         char cbuf[] = STRING_PAYLOAD;
         char* pchar = cbuf;
 
-        io::stout->out("String like things: Literals and char buffers\n");
-        io::stout->out(format(" A string literal:       {}\n", STRING_PAYLOAD));
-        io::stout->out(format(" A const char*:          {}\n", sp));
-        io::stout->out(format(" A char[]:               {}\n", cbuf));
-        io::stout->out(format(" A char*:                {}\n", pchar));
+        // Note: we could just use sys::print[ln] here but we want to
+        //       explicitly use sys::format for the testing.
 
-        io::stout->out("String like things: string\n");
-        io::stout->out(format(" A const string&:        {}\n", s));
-        io::stout->out(format(" A string&&:             {}\n", string(STRING_PAYLOAD)));
+        print_str("String like things: Literals and char buffers\n");
+        print_str(format(" A string literal:       {}\n", STRING_PAYLOAD));
+        print_str(format(" A const char*:          {}\n", sp));
+        print_str(format(" A char[]:               {}\n", cbuf));
+        print_str(format(" A char*:                {}\n", pchar));
 
-        io::stout->out("String like things: string_view\n");
-        io::stout->out(format(" A const string_view&:   {}\n", sv));
-        io::stout->out(format(" A string_view&&:        {}\n", string_view(STRING_PAYLOAD)));
+        print_str("String like things: string\n");
+        print_str(format(" A const string&:        {}\n", s));
+        print_str(format(" A string&&:             {}\n", string(STRING_PAYLOAD)));
+
+        print_str("String like things: string_view\n");
+        print_str(format(" A const string_view&:   {}\n", sv));
+        print_str(format(" A string_view&&:        {}\n", string_view(STRING_PAYLOAD)));
 
         // -- Integral like things -----------------------------------------
 
@@ -102,55 +108,55 @@ public:
         constexpr sint128_t         _s128       = 42;
         constexpr uint128_t         _u128       = 42;
 
-        io::stout->out("\nIntegeral types: const foo&\n");
-        io::stout->out(format(" signed char:            {}\n", _schar));
-        io::stout->out(format(" unsigned char:          {}\n", _uchar));
-        io::stout->out(format(" int:                    {}\n", _int));
-        io::stout->out(format(" unsigned int:           {}\n", _uint));
-        io::stout->out(format(" short:                  {}\n", _short));
-        io::stout->out(format(" unsigned short:         {}\n", _ushort));
-        io::stout->out(format(" long:                   {}\n", _long));
-        io::stout->out(format(" unsigned long:          {}\n", _ulong));
-        io::stout->out(format(" sint128_t:              {}\n", _s128));
-        io::stout->out(format(" uint128_t:              {}\n", _u128));
+        print_str("\nIntegeral types: const foo&\n");
+        print_str(format(" signed char:            {}\n", _schar));
+        print_str(format(" unsigned char:          {}\n", _uchar));
+        print_str(format(" int:                    {}\n", _int));
+        print_str(format(" unsigned int:           {}\n", _uint));
+        print_str(format(" short:                  {}\n", _short));
+        print_str(format(" unsigned short:         {}\n", _ushort));
+        print_str(format(" long:                   {}\n", _long));
+        print_str(format(" unsigned long:          {}\n", _ulong));
+        print_str(format(" sint128_t:              {}\n", _s128));
+        print_str(format(" uint128_t:              {}\n", _u128));
 
-        io::stout->out("Integeral types: foo&&\n");
-        io::stout->out(format(" signed char:            {}\n", static_cast<signed char>(42)));
-        io::stout->out(format(" unsigned char:          {}\n", static_cast<unsigned char>(42)));
-        io::stout->out(format(" int:                    {}\n", static_cast<int>(42)));
-        io::stout->out(format(" unsigned int:           {}\n", static_cast<unsigned int>(42)));
-        io::stout->out(format(" short:                  {}\n", static_cast<short>(42)));
-        io::stout->out(format(" unsigned short:         {}\n", static_cast<unsigned short>(42)));
-        io::stout->out(format(" long:                   {}\n", static_cast<long>(42)));
-        io::stout->out(format(" unsigned long:          {}\n", static_cast<unsigned long>(42)));
-        io::stout->out(format(" sint128_t:              {}\n", static_cast<sint128_t>(42)));
-        io::stout->out(format(" uint128_t:              {}\n", static_cast<uint128_t>(42)));
+        print_str("Integeral types: foo&&\n");
+        print_str(format(" signed char:            {}\n", static_cast<signed char>(42)));
+        print_str(format(" unsigned char:          {}\n", static_cast<unsigned char>(42)));
+        print_str(format(" int:                    {}\n", static_cast<int>(42)));
+        print_str(format(" unsigned int:           {}\n", static_cast<unsigned int>(42)));
+        print_str(format(" short:                  {}\n", static_cast<short>(42)));
+        print_str(format(" unsigned short:         {}\n", static_cast<unsigned short>(42)));
+        print_str(format(" long:                   {}\n", static_cast<long>(42)));
+        print_str(format(" unsigned long:          {}\n", static_cast<unsigned long>(42)));
+        print_str(format(" sint128_t:              {}\n", static_cast<sint128_t>(42)));
+        print_str(format(" uint128_t:              {}\n", static_cast<uint128_t>(42)));
 
-        io::stout->out("Integeral types: Various common convertibles\n");
-        io::stout->out(format(" uint8_t:                {}\n", static_cast<uint8_t> (42)));
-        io::stout->out(format(" sint8_t:                {}\n", static_cast<sint8_t> (42)));
-        io::stout->out(format(" uint16_t:               {}\n", static_cast<uint16_t>(42)));
-        io::stout->out(format(" sint16_t:               {}\n", static_cast<sint16_t>(42)));
-        io::stout->out(format(" uint32_t:               {}\n", static_cast<uint32_t>(42)));
-        io::stout->out(format(" sint32_t:               {}\n", static_cast<sint32_t>(42)));
-        io::stout->out(format(" uint64_t:               {}\n", static_cast<uint64_t>(42)));
-        io::stout->out(format(" sint64_t:               {}\n", static_cast<sint64_t>(42)));
-        io::stout->out(format(" uintptr_t:              {}\n", static_cast<uintptr_t>(42)));
-        io::stout->out(format(" sintptr_t:              {}\n", static_cast<sintptr_t>(42)));
-        io::stout->out(format(" uint128_t:              {}\n", static_cast<uint128_t>(42)));
-        io::stout->out(format(" sint128_t:              {}\n", static_cast<sint128_t>(42)));
-        io::stout->out(format(" uintmax_t:              {}\n", static_cast<uintmax_t>(42)));
-        io::stout->out(format(" sintmax_t:              {}\n", static_cast<sintmax_t>(42)));
-        io::stout->out(format(" time_t:                 {}\n", static_cast<time_t>(42)));
+        print_str("Integeral types: Various common convertibles\n");
+        print_str(format(" uint8_t:                {}\n", static_cast<uint8_t> (42)));
+        print_str(format(" sint8_t:                {}\n", static_cast<sint8_t> (42)));
+        print_str(format(" uint16_t:               {}\n", static_cast<uint16_t>(42)));
+        print_str(format(" sint16_t:               {}\n", static_cast<sint16_t>(42)));
+        print_str(format(" uint32_t:               {}\n", static_cast<uint32_t>(42)));
+        print_str(format(" sint32_t:               {}\n", static_cast<sint32_t>(42)));
+        print_str(format(" uint64_t:               {}\n", static_cast<uint64_t>(42)));
+        print_str(format(" sint64_t:               {}\n", static_cast<sint64_t>(42)));
+        print_str(format(" uintptr_t:              {}\n", static_cast<uintptr_t>(42)));
+        print_str(format(" sintptr_t:              {}\n", static_cast<sintptr_t>(42)));
+        print_str(format(" uint128_t:              {}\n", static_cast<uint128_t>(42)));
+        print_str(format(" sint128_t:              {}\n", static_cast<sint128_t>(42)));
+        print_str(format(" uintmax_t:              {}\n", static_cast<uintmax_t>(42)));
+        print_str(format(" sintmax_t:              {}\n", static_cast<sintmax_t>(42)));
+        print_str(format(" time_t:                 {}\n", static_cast<time_t>(42)));
 
         // -- Boolean things -----------------------------------------------
 
         constexpr bool bool_val = true;
 
-        io::stout->out("\nBooleans:\n");
-        io::stout->out(format(" const bool&:            {}\n", bool_val));
-        io::stout->out(format(" bool&& (true):          {}\n", true));
-        io::stout->out(format(" bool&& (false):         {}\n", false));
+        print_str("\nBooleans:\n");
+        print_str(format(" const bool&:            {}\n", bool_val));
+        print_str(format(" bool&& (true):          {}\n", true));
+        print_str(format(" bool&& (false):         {}\n", false));
 
         static_assert(is_integral_v<bool>);
 
@@ -163,33 +169,48 @@ public:
         class Foo {} foo;
         Foo* foo_ptr = &foo;
 
-        io::stout->out("\nPointers: const foo&\n");
-        io::stout->out(format(" const void*:            {}\n", cvp));
-        io::stout->out(format(" void*:                  {}\n", vp));
-        io::stout->out(format(" nullptr_t:              {}\n", np));
-        io::stout->out(format(" class Foo*:             {}\n", foo_ptr));
-        io::stout->out("Pointers: foo&&\n");
-        io::stout->out(format(" const void*:            {}\n", static_cast<const void*>(nullptr)));
-        io::stout->out(format(" void*:                  {}\n", static_cast<void*>(nullptr)));
-        io::stout->out(format(" nullptr_t:              {}\n", nullptr));
-        io::stout->out(format(" class Foo*:             {}\n", &foo));
+        print_str("\nPointers: const foo&\n");
+        print_str(format(" const void*:            {}\n", cvp));
+        print_str(format(" void*:                  {}\n", vp));
+        print_str(format(" nullptr_t:              {}\n", np));
+        print_str(format(" class Foo*:             {}\n", foo_ptr));
+        print_str("Pointers: foo&&\n");
+        print_str(format(" const void*:            {}\n", static_cast<const void*>(nullptr)));
+        print_str(format(" void*:                  {}\n", static_cast<void*>(nullptr)));
+        print_str(format(" nullptr_t:              {}\n", nullptr));
+        print_str(format(" class Foo*:             {}\n", &foo));
 
         // -- Custom formatter ---------------------------------------------
 
         MyClass cf(1975);
 
-        io::stout->out("\nCustom formatter\n");
-        io::stout->out(format(" MyClass{{}}:              {}\n",   cf));
-        io::stout->out(format(" MyClass{{!}}:             {:!}\n", cf));
+        print_str("\nCustom formatter\n");
+        print_str(format(" MyClass{{}}:              {}\n",   cf));
+        print_str(format(" MyClass{{!}}:             {:!}\n", cf));
+    }
+
+    void TestFormattedSize()
+    {
+        sys::println_str("-- Basic formatted_size functionality");
+
+        VerifyThrow(sys::formatted_size("cat")           == 3);
+        VerifyThrow(sys::formatted_size("cat{}", 10)     == 5);
+        VerifyThrow(sys::formatted_size("cat{}", "dog")  == 6);
+        VerifyThrow(sys::formatted_size("cat{:10}", 0)   == 13);
     }
 
     bool RunTests() override
     {
-        try { TestEasySingleConversions(); }
+        try {
+            TestEasySingleConversions();
+            TestFormattedSize();
+        }
         catch (sys::exception& e) {
-            io::stout->out("** Test failed due to exception: ");
-            io::stout->out(e.get_msg());
-            io::stout->out("\n");
+            // This is a good candidate for sys::print, but since we're testing
+            // format here, we'll not use it in the exception handler.
+            print_str("** Test failed due to exception: ");
+            print_str(e.get_msg());
+            print_str("\n");
             return false;
         }
 

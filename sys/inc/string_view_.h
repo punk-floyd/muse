@@ -465,7 +465,6 @@ concept string_view_like = sys::is_string_view_like_v<T, Char_t>;
 template <class T, class Char_t = char>
 concept string_view_convertible = sys::is_convertible_v<T, string_view>;
 
-
 _SYS_END_NS
 
 #endif // ifndef sys_string_view__included

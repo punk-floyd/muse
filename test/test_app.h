@@ -1,6 +1,7 @@
 #include <app.h>
 #include <error_.h>
 #include <string_view_.h>
+#include <print_.h>
 
 class TestApp : public sys::app
 {
@@ -8,7 +9,14 @@ public:
 
     TestApp() = default;
 
-    class test_failure : public sys::error_logic {};
+    class test_failure : public sys::error_logic
+    {
+    public:
+        test_failure() = default;
+
+        template <sys::string_view_convertible T>
+        explicit test_failure (T svl) : sys::error_logic(svl) {}
+    };
 
     constexpr unsigned get_error_count() const noexcept
         { return m_error_count; }
@@ -17,15 +25,8 @@ public:
 
     inline bool Verify(bool b, sys::string_view msg = "")
     {
-        if (!b) {
-            ++m_error_count;
-            stout()->out(" Test failure");
-            if (!msg.is_empty()) {
-                stout()->out(": ");
-                stout()->out(msg);
-            }
-            stout()->out("\n");
-        }
+        if (!b)
+            sys::println(" Test failure ({}): {}", ++m_error_count, msg);
 
         return b;
     }
@@ -34,15 +35,7 @@ public:
     {
         if (!b) {
             ++m_error_count;
-
-            // MOOMOO : Until exception takes a string
-            stout()->out(" Fundamental test failure");
-            if (!msg.is_empty()) {
-                stout()->out(": ");
-                stout()->out(msg);
-            }
-            stout()->out("\n");
-            throw test_failure(/*msg*/);
+            throw test_failure{msg};
         }
     }
 

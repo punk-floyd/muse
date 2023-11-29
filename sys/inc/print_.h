@@ -12,10 +12,11 @@
 #include <_core_.h>
 #include <format_.h>
 #include <io_ostream_.h>
+#include <string_view_.h>
 
 _SYS_BEGIN_NS
 
-/// Prints to standard output using formatted representation of the arguments
+/// Print an formatted string to standard output
 template <class... FmtArgs>
 inline void print(format_string<FmtArgs...> fmt, FmtArgs&&... args)
 {
@@ -23,11 +24,26 @@ inline void print(format_string<FmtArgs...> fmt, FmtArgs&&... args)
     format_to(osi, fmt, forward<FmtArgs>(args)...);
 }
 
-/// Prints to standard output using formatted representation of the arguments with a terminal newline
+/// Print a formatted string to standard output with trailing newline
 template <class... FmtArgs>
 inline void println(format_string<FmtArgs...> fmt, FmtArgs&&... args)
 {
     print(fmt, forward<FmtArgs>(args)...);
+    io::stout->out('\n');
+}
+
+/// Print an unformatted string to standard output
+template <string_view_convertible Viewable>
+inline void print_str(Viewable view)
+{
+    io::stout->out(view);
+}
+
+/// Print an unformatted string to standard output with trailing newline
+template <string_view_convertible Viewable>
+inline void println_str(Viewable view)
+{
+    io::stout->out(view);
     io::stout->out('\n');
 }
 

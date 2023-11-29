@@ -47,7 +47,7 @@ inline string format(format_string<FmtArgs...> fmt, FmtArgs&&... args)
 
 /// Writes out formatted representation of its arguments through an output iterator
 template <class OutputIt, class... FmtArgs>
-OutputIt format_to(OutputIt out, format_string<FmtArgs...> fmt, FmtArgs&&... args)
+inline OutputIt format_to(OutputIt out, format_string<FmtArgs...> fmt, FmtArgs&&... args)
 {
     return vformat_to(move(out), fmt.get_view(),
         make_format_args<basic_format_context<OutputIt>, FmtArgs...>(args...));
@@ -57,10 +57,7 @@ OutputIt format_to(OutputIt out, format_string<FmtArgs...> fmt, FmtArgs&&... arg
 template <class... FmtArgs>
 inline size_t formatted_size(format_string<FmtArgs...> fmt, FmtArgs&&... args)
 {
-    using OutputIt = count_insert_iterator<char>;
-
-    return vformat_to(OutputIt{}, fmt.get_view(),
-        make_format_args<basic_format_context<OutputIt>, FmtArgs...>(args...)).get_count();
+    return format_to(count_insert_iterator<char>{}, fmt, forward<FmtArgs>(args)...).get_count();
 }
 
 _SYS_END_NS

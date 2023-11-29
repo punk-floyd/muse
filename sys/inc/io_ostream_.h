@@ -26,16 +26,15 @@ public:
 
     constexpr ostream() = default;
 
-    template <class T>
-        requires (sys::is_convertible_v<T, sys::string_view>)
-    ostream& out(T&& t)
+    template <string_view_convertible Viewable>
+    inline ostream& out(Viewable&& v)
     {
-        sys::string_view sv(forward<T>(t));
-        sink(sv.data(), sv.length());   // MOOMOO failure
+        sys::string_view sv(forward<Viewable>(v));
+        sink(sv.data(), sv.length());
         return *this;
     }
 
-    ostream& out(char_t ch)
+    inline ostream& out(char_t ch)
     {
         sink(&ch, 1);
         return *this;
@@ -50,7 +49,7 @@ protected:
     // - Virtual overrides
 
     /// Output given buffer to sink
-    virtual bool sink(const char_t* data, size_t length) = 0;
+    virtual bool sink(const char_t* data, size_t length) = 0;   // MDTODO : span
 };
 
 /// Output iterator that appends elements into a stream

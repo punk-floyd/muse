@@ -37,7 +37,7 @@ My assumptions:
  - I'm building on a GCC that supports C++20 (presently gcc-12)
  - I'm running on a UNIX like OS (presently Debian flavored Linux)
 
-# The state of things (October 2023)
+# The state of things (November 2023)
 
 ## C++ Runtime (sys)
 
@@ -69,7 +69,7 @@ Headers:
  - [format_.h](sys/inc/format_.h) (sys::format and friends) - A mostly-complete
    implementation for a constexpr-friendly, type-safe formatted output akin to
    std::format. Does not yet support floating-point data output and isn't utf-8
-   friendly yet.
+   friendly yet. Does support custom formatters.
  - [functional_.h](sys/inc/functional_.h) - Implements sys::ref_wrap (a clone
    of std::reference_wrapper), sys::invoke, sys::is_invocable_t, et al.
  - [initializer_list_.h](sys/inc/initializer_list_.h) - Support for
